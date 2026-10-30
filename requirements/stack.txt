@@ -1,0 +1,13 @@
+# Pinned development stack for PitfallRelay (macOS arm64, Python 3.11).
+# Rationale and compatibility notes: docs/development.md and docs/initialization-report.md.
+# This file is NOT a full lock; the exact transitive set is in requirements/stack-lock.txt.
+# Do not take a single item from here when only that item is needed.
+torch==2.10.0
+torchvision==0.25.0
+tensordict==0.11.0
+torchrl==0.11.1
+benchmarl==1.5.2
+# BenchMARL declares av<14 in install_requires; pin the wheel that has a cp311 macOS arm64 build.
+av==13.1.0
+hydra-core==1.3.2
+numpy<3

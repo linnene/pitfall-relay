@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="420" viewBox="0 0 1280 420" role="img" aria-labelledby="title desc">
+<title id="title">PitfallRelay — Experience travels. Mistakes do not have to.</title><desc id="desc">A conceptual illustration: a sender's unsuccessful action becomes an experience card, relayed to a teammate facing a different route. This is a research vision, not an implemented architecture.</desc>
+<defs><pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse"><path d="M32 0H0V32" fill="none" stroke="#fff" stroke-opacity=".035"/></pattern><marker id="arrow" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="m1 1 5 3-5 3" fill="none" stroke="#68aaff" stroke-width="1.4"/></marker></defs>
+<rect width="1280" height="420" rx="24" fill="#0c1729"/><rect width="1280" height="420" rx="24" fill="url(#grid)"/>
+<path d="M600 44v332" stroke="#24364d"/>
+<g font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif">
+<rect x="52" y="51" width="173" height="28" rx="14" fill="#152d4a" stroke="#31537c"/><text x="68" y="70" fill="#9ec9ff" font-size="12" letter-spacing="1.5">RESEARCH IN PROGRESS</text>
+<text x="49" y="162" fill="#f4f8ff" font-size="68" font-weight="700" letter-spacing="-2">PitfallRelay</text>
+<text x="53" y="211" fill="#d5e5fa" font-size="23">Experience travels.</text><text x="53" y="244" fill="#69aaff" font-size="23">Mistakes do not have to.</text>
+<text x="53" y="309" fill="#a2b5ce" font-size="15">Execution-time failure experience sharing</text><text x="53" y="333" fill="#a2b5ce" font-size="15">for multi-agent collaboration</text>
+<text x="53" y="383" fill="#647d9e" font-size="11" letter-spacing="2">EXPERIENCE / RELEVANCE / TRANSFER</text>
+<g stroke-linejoin="round" stroke-linecap="round" fill="none">
+<path d="M653 135h114l31 44" stroke="#48617f" stroke-width="2" stroke-dasharray="5 7"/><path d="m788 169 18 18m0-18-18 18" stroke="#a5b8d1" stroke-width="2.5"/>
+<path d="M698 221h64l40-20" stroke="#6aabff" stroke-width="2" marker-end="url(#arrow)"/>
+<path d="M955 202h81" stroke="#6aabff" stroke-width="2" marker-end="url(#arrow)"/>
+<path d="M1125 218v53h83v-81" stroke="#6aabff" stroke-width="3" marker-end="url(#arrow)"/>
+<path d="M1101 207h71" stroke="#3f5675" stroke-width="2" stroke-dasharray="5 7"/>
+<path d="m1156 194 19 26m0-26-19 26" stroke="#637a98" stroke-width="2"/>
+<rect x="653" y="197" width="45" height="45" rx="13" fill="#142b49" stroke="#76b4ff" stroke-width="2"/><path d="M663 242v8m24-8v8M675 197v-10" stroke="#76b4ff" stroke-width="2"/><circle cx="675" cy="184" r="3" fill="#76b4ff" stroke="none"/><circle cx="668" cy="215" r="2" fill="#e0efff" stroke="none"/><circle cx="682" cy="215" r="2" fill="#e0efff" stroke="none"/>
+<rect x="810" y="136" width="139" height="137" rx="14" fill="#12243d" stroke="#3b6494"/>
+<rect x="822" y="124" width="139" height="137" rx="14" fill="#142b49" stroke="#6aabff" stroke-width="1.5"/>
+<path d="M842 161h45m-45 22h96m-96 22h96" stroke="#6587af" stroke-width="2"/><path d="M842 235h26m12 0h17m12 0h29" stroke="#6aabff" stroke-width="3"/>
+<rect x="1050" y="176" width="48" height="48" rx="14" fill="#142b49" stroke="#76b4ff" stroke-width="2"/><path d="M1062 224v9m24-9v9m-12-57v-10" stroke="#76b4ff" stroke-width="2"/><circle cx="1074" cy="163" r="3" fill="#76b4ff" stroke="none"/><circle cx="1066" cy="196" r="2" fill="#e0efff" stroke="none"/><circle cx="1081" cy="196" r="2" fill="#e0efff" stroke="none"/>
+</g>
+<text x="649" y="295" fill="#b2c8e5" font-size="14">One experience</text><text x="824" y="304" fill="#b2c8e5" font-size="14">Shared selectively</text><text x="1053" y="304" fill="#b2c8e5" font-size="14">A new context</text>
+<text x="650" y="374" fill="#647d9e" font-size="11" letter-spacing="1.4">CONCEPT ILLUSTRATION · NOT A BENCHMARK RESULT</text>
+</g></svg>
