@@ -24,7 +24,7 @@ Per robot `robotN` (`N` in 0,1,2), everything is namespaced:
 | --- | --- |
 | Goal | `/robotN/navigate_to_pose` (`nav2_msgs/action/NavigateToPose`) |
 | Odometry | `/robotN/odom`, TF `robotN/odom -> robotN/base_link` |
-| Static TF | `/robotN/tf_static`, `map -> robotN/odom` (start pose) |
+| TF | `/robotN/tf`, `map -> robotN/odom -> robotN/base_link` |
 | Lidar | `/robotN/scan` (`sensor_msgs/LaserScan`, frame `robotN/base_link`) |
 | Velocity | `/robotN/cmd_vel` (`geometry_msgs/Twist`) |
 | Plan / costmaps | `/robotN/plan`, `/robotN/global_costmap/costmap`, `/robotN/local_costmap/costmap` |
@@ -37,11 +37,20 @@ Control chain from goal to wheels:
 3. `velocity_smoother` publishes `/robotN/cmd_vel`.
 4. The Isaac process subscribes to `/robotN/cmd_vel` and feeds Isaac's stock
    `DifferentialController` (wheel radius 0.24 m, wheel base 0.53342 m).
-5. `WheeledRobot.apply_wheel_actions` drives the PhysX wheel joints; chassis
-   motion is fed back by `IsaacComputeOdometry` on `/robotN/odom` and TF.
+5. `WheeledRobot.apply_wheel_actions` drives the PhysX wheel joints. The
+   Isaac-side process publishes `/robotN/odom` (chassis pose relative to its
+   start) and `robotN/odom -> robotN/base_link` TF at 60 Hz; a static
+   `map -> robotN/odom` transform places the odom origin at the start pose.
+   This uses the simulated true chassis pose so Nav2's map frame cannot drift
+   from the Isaac world frame; it feeds feedback only, never control.
 
 The static map (`runs/.../map/room_map.pgm|yaml`) is rasterised from the same
 wall list that builds the USD room, so map and world cannot drift.
+
+Using Isaac's wheel/articulation odometry alone accumulated up to ~0.5 m of
+map error over a turning run, which made final-pose comparison meaningless.
+The odometry here is therefore exact simulated odometry (no noise, no slip),
+published by the Isaac-side bridge; Nav2 still plans and controls normally.
 
 ## Layout
 
@@ -73,6 +82,14 @@ docker run --rm --name flex_nav2_smoke --gpus device=1 \
 `--mode full` runs cases 1-3 in one session; `--mode case4` starts a fresh
 simulation and Nav2 stack with a different goal set. `RUN_OUT` is the run
 directory; keep it outside the repository and leave raw data on `amgg`.
+
+## Startup note
+
+Three Nav2 stacks plus Isaac put a burst on DDS discovery. Startup starts the
+stacks one by one and, if a lifecycle manager's `change_state` response misses
+its deadline, the runner retries the transition directly and checks all eight
+lifecycle nodes before sending goals. RTX lidars are disabled until all stacks
+are active to reduce render load.
 
 ## Acceptance evidence
 

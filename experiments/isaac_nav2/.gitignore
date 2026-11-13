@@ -2,3 +2,5 @@ runs/
 out/
 __pycache__/
 *.pyc
+# Development-only probes; the acceptance runner is scripts/acceptance.py.
+tools/
