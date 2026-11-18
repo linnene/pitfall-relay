@@ -69,7 +69,12 @@ def build_samples(episodes, agent, event_type, window, include_latent=True):
                     # Too late or no teammate window: exclude from probe labels.
                     continue
             feats = []
-            for s in range(t - window + 1, t + 1):
+            # A sample at decision t uses the observations/actions completed
+            # through step t-1 and the Actor latent produced by that same
+            # decision.  This keeps the local-history baseline and the latent
+            # arm on identical information (obs[t] would be one step newer
+            # than h_out[t]).
+            for s in range(t - window, t):
                 if s < 0:
                     feats.extend([0.0] * (obs_dim + 2 * act_dim + 2))
                     continue
@@ -99,46 +104,49 @@ def episode_latent_map(samples):
 
 
 def shuffled_latents(samples, seed=12345):
-    rng = np.random.RandomState(seed)
+    """Deterministic cross-episode latent shuffle.
+
+    Each episode receives a donor episode by a fixed cyclic mapping; each
+    sample picks a donor row by a stable index.  The result is therefore
+    identical every time a scorer is evaluated, which is required for a frozen
+    threshold and for the paired bootstrap.
+    """
     by_ep = episode_latent_map(samples)
-    episodes = sorted(by_ep)
-    donor = {}
-    for ep in episodes:
-        choices = [x for x in episodes if x != ep]
-        donor[ep] = int(rng.choice(choices)) if choices else ep
+    episodes = sorted(ep for ep, rows in by_ep.items() if rows)
+    if not episodes:
+        return np.zeros((0, 0), dtype=np.float32)
+    donor = {ep: episodes[(i + 1 + int(seed)) % len(episodes)]
+             for i, ep in enumerate(episodes)}
     out = []
     for s in samples:
-        d = donor[s["episode"]]
-        donors = by_ep[d]
-        pick = donors[rng.randint(len(donors))]
-        out.append(pick["latent"])
-    return np.stack(out) if out else np.zeros((0, 0), dtype=np.float32)
+        donors = by_ep[donor[s["episode"]]]
+        idx = (int(s["episode"]) * 1000003 + int(s["step"]) * 97 + int(s["agent"]) * 13) % len(donors)
+        out.append(donors[idx]["latent"])
+    return np.stack(out)
 
 
 def fit_predict(train, cal, test, latent_mode, seed=0):
     from sklearn.linear_model import LogisticRegression
     from sklearn.preprocessing import StandardScaler
 
-    X_train = np.stack([s["features"] for s in train])
+    def stack(rows):
+        X = np.stack([s["features"] for s in rows])
+        if latent_mode == "real":
+            X = np.concatenate([X, np.stack([s["latent"] for s in rows])], axis=1)
+        elif latent_mode == "shuffled":
+            X = np.concatenate([X, np.stack([s["latent_shuffled"] for s in rows])], axis=1)
+        return X
+
+    X_train = stack(train)
     y_train = np.array([s["label"] for s in train], dtype=np.int32)
-    if latent_mode == "real":
-        L_train = np.stack([s["latent"] for s in train])
-        X_train = np.concatenate([X_train, L_train], axis=1)
-    elif latent_mode == "shuffled":
-        X_train = np.concatenate([X_train, shuffled_latents(train, seed)], axis=1)
     scaler = StandardScaler().fit(X_train)
     model = LogisticRegression(max_iter=2000, solver="lbfgs", class_weight="balanced", random_state=seed)
     model.fit(scaler.transform(X_train), y_train)
 
     def score(rows):
-        X = np.stack([s["features"] for s in rows])
-        if latent_mode == "real":
-            X = np.concatenate([X, np.stack([s["latent"] for s in rows])], axis=1)
-        elif latent_mode == "shuffled":
-            X = np.concatenate([X, shuffled_latents(rows, seed + 1)], axis=1)
-        if len(X) == 0:
+        if not rows:
             return np.zeros((0,), dtype=np.float32)
-        return model.predict_proba(scaler.transform(X))[:, 1]
+        return model.predict_proba(scaler.transform(stack(rows)))[:, 1]
 
     return score, model
 
@@ -217,8 +225,9 @@ def normal_fpr(test, score, threshold):
     }
 
 
-def bootstrap_diff(test, events, scores, thresholds):
-    # Paired event-level difference; resample episodes as clusters.
+def bootstrap_diff(test, events, scores, thresholds, baseline_name="baseline", latent_name="real"):
+    # Paired event-level difference; resample episodes as clusters and keep
+    # the same event set for both arms.
     ep_ids = sorted(set(e["_episode_index"] for e in events))
     by_ep = {ep: [e for e in events if e["_episode_index"] == ep] for ep in ep_ids}
     rng = np.random.RandomState(4242)
@@ -229,15 +238,15 @@ def bootstrap_diff(test, events, scores, thresholds):
         lat_hits = []
         for ep in draw:
             for e in by_ep[ep]:
-                for name, threshold in thresholds.items():
-                    rows = [s for s in test if s["episode"] == ep and s["agent"] == e.get("agent")
-                            and e["step"] < s["step"] and e.get("next_relevant_decision_step") is not None
-                            and s["step"] < e["next_relevant_decision_step"]]
-                    if not rows:
-                        continue
-                    sc = scores[name](rows)
-                    hit = bool((sc >= threshold).any())
-                    (base_hits if name == "baseline" else lat_hits).append(hit)
+                rows = [s for s in test if s["episode"] == ep and s["agent"] == e.get("agent")
+                        and e["step"] < s["step"] and e.get("next_relevant_decision_step") is not None
+                        and s["step"] < e["next_relevant_decision_step"]]
+                if not rows:
+                    continue
+                base_scores = scores[baseline_name](rows)
+                lat_scores = scores[latent_name](rows)
+                base_hits.append(bool((base_scores >= thresholds[baseline_name]).any()))
+                lat_hits.append(bool((lat_scores >= thresholds[latent_name]).any()))
         if base_hits and lat_hits:
             diffs.append(float(np.mean(lat_hits) - np.mean(base_hits)))
     if not diffs:
@@ -256,14 +265,28 @@ def run_one(eval_dir, event_type, agent, train_count, cal_count, out_dir, seed=0
     train, train_events = build_samples(train_eps, agent, event_type, window=20)
     cal, cal_events = build_samples(cal_eps, agent, event_type, window=20)
     test, test_events = build_samples(test_eps, agent, event_type, window=20)
+    for split in (train, cal, test):
+        shuffled = shuffled_latents(split, seed)
+        for sample, latent in zip(split, shuffled):
+            sample["latent_shuffled"] = latent
     normal_cal = [s for s in cal if s["label"] == 0 and not any(
         e["_episode_index"] == s["episode"] for e in cal_events)]
     normal_test = [s for s in test if s["label"] == 0 and not any(
         e["_episode_index"] == s["episode"] for e in test_events)]
+    event_eps = {e["_episode_index"] for e in test_events}
+    normal_test_eps = {s["episode"] for s in normal_test}
+    normal_cal_eps = {s["episode"] for s in normal_cal}
     if not train or not cal or not test:
         return {"eval_dir": str(eval_dir), "event_type": event_type, "agent": agent,
                 "error": "empty train/cal/test sample set",
                 "counts": {"train_samples": len(train), "cal_samples": len(cal), "test_samples": len(test)}}
+    train_labels = np.array([s["label"] for s in train], dtype=np.int32)
+    if train_labels.min() == train_labels.max():
+        return {"eval_dir": str(eval_dir), "event_type": event_type, "agent": agent,
+                "error": "training samples contain only one class",
+                "counts": {"train_samples": len(train), "cal_samples": len(cal),
+                           "test_samples": len(test), "train_events": len(train_events),
+                           "cal_events": len(cal_events), "test_events": len(test_events)}}
     result = {
         "eval_dir": str(eval_dir),
         "event_type": event_type,
@@ -276,7 +299,12 @@ def run_one(eval_dir, event_type, agent, train_count, cal_count, out_dir, seed=0
         "counts": {"train_samples": len(train), "cal_samples": len(cal), "test_samples": len(test),
                    "train_events": len(train_events), "cal_events": len(cal_events),
                    "test_events": len(test_events), "normal_cal_samples": len(normal_cal),
-                   "normal_test_samples": len(normal_test)},
+                   "normal_test_samples": len(normal_test),
+                   "train_episodes": len(train_eps), "cal_episodes": len(cal_eps),
+                   "test_episodes": len(test_eps),
+                   "test_event_episodes": len(event_eps),
+                   "test_normal_episodes": len(normal_test_eps),
+                   "cal_normal_episodes": len(normal_cal_eps)},
         "arms": {},
     }
     scores = {}
@@ -306,7 +334,11 @@ def run_one(eval_dir, event_type, agent, train_count, cal_count, out_dir, seed=0
             "event_results": event_results,
             "recall": float(np.mean([r["recalled"] for r in event_results if r["reachable"]]))
             if any(r["reachable"] for r in event_results) else None,
+            "recall_all_events": float(np.mean([r["recalled"] for r in event_results]))
+            if event_results else None,
             "reachable_events": sum(1 for r in event_results if r["reachable"]),
+            "reachable_window_coverage": (sum(1 for r in event_results if r["reachable"])
+                                          / len(event_results)) if event_results else None,
             "total_events": len(event_results),
             "early_alarm_events": sum(1 for r in event_results if r["early"]),
             "median_delay": float(np.median([r["delay"] for r in event_results if r["delay"] is not None]))
@@ -315,10 +347,27 @@ def run_one(eval_dir, event_type, agent, train_count, cal_count, out_dir, seed=0
             "pr_auc": pr_auc,
         }
     if "baseline" in thresholds and "real" in thresholds:
-        paired = bootstrap_diff(test, test_events, scores,
-                                {"baseline": thresholds["baseline"], "real": thresholds["real"]})
+        paired = bootstrap_diff(test, test_events, scores, thresholds,
+                                baseline_name="baseline", latent_name="real")
         result["paired_baseline_vs_real"] = paired
+    if "shuffled" in thresholds and "real" in thresholds:
+        result["paired_shuffled_vs_real"] = bootstrap_diff(
+            test, test_events, scores, thresholds,
+            baseline_name="shuffled", latent_name="real")
     Path(out_dir).mkdir(parents=True, exist_ok=True)
+    arrays = {
+        "feature": np.stack([s["features"] for s in test]) if test else np.zeros((0, 0), dtype=np.float32),
+        "latent": np.stack([s["latent"] for s in test]) if test else np.zeros((0, 0), dtype=np.float32),
+        "label": np.array([s["label"] for s in test], dtype=np.int32),
+        "episode": np.array([s["episode"] for s in test], dtype=np.int32),
+        "step": np.array([s["step"] for s in test], dtype=np.int32),
+        "agent": np.array([s["agent"] for s in test], dtype=np.int32),
+    }
+    for name, scorer in scores.items():
+        arrays[f"score_{name}"] = scorer(test) if test else np.zeros((0,), dtype=np.float32)
+    raw_path = Path(out_dir) / f"probe_{event_type}_agent{agent}_test.npz"
+    np.savez_compressed(str(raw_path), **arrays)
+    result["test_arrays"] = str(raw_path)
     (Path(out_dir) / f"probe_{event_type}_agent{agent}.json").write_text(json.dumps(result, indent=2, sort_keys=True))
     return result
 
