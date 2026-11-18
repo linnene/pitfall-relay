@@ -53,5 +53,28 @@ the not-applicable group.
 
 ## Current status
 
-Development probes only. No holdout has been run. Raw data stays under
+**Stopped at the native-failure gate; no relay task or paired holdout was
+built.** Development probes on amgg found:
+
+- Straight bays of clear width 1.8, 1.4, 1.2, 1.18 and 1.1 m all completed
+  with `SUCCEEDED` and a delivered action result.
+- An L-shaped docking bay of 0.9 m completed with `SUCCEEDED` (47 s sim).
+- At 0.85 m the robot moved toward the goal but was still `EXECUTING` after
+  240 s; the action status stayed 2 and no result was delivered. The BT abort
+  seen at shutdown was caused by the probe's own SIGINT, not by Nav2.
+- At 0.8 m the robot also remained `EXECUTING`/no result after 120 s.
+- At 0.75 m Nav2's planner failed immediately (`GridBased failed to generate a
+  valid path`), but that failure is visible in the same static map that B's
+  planner uses before choosing, so B would not need a trial to rule it out.
+
+The only native failure is map-infeasible at 0.75 m, which makes the scenario
+not applicable under the observability gate. The 0.8/0.85 m tight-turn cases
+are budget timeouts, not native failures; counting them would violate the
+no-timeout-compression rule. A's failure therefore cannot be confirmed by a
+local action result/status as required for the causal chain, and the message
+experiment cannot be run without modifying the controller/BT or adding a
+timeout supervisor. The candidate is closed with no paired arms, no 24-group
+holdout, and no fabricated failure labels.
+
+Raw probe data stays under
 `/data/amgg_flex_demo/flex-relay-site-pilot-20261118-5be93a27/`.
