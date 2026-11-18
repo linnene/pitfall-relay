@@ -236,7 +236,8 @@ def main():
     save_dir = f"warehouse_A_maciaicc_s{args.seed}"
     for sub in ("performance", "policy_nns"):
         (work_dir / sub / save_dir).mkdir(parents=True, exist_ok=True)
-    (work_dir / "performance" / save_dir / "ckpt").mkdir(parents=True, exist_ok=True)
+    for sub in ("train", "test", "ckpt"):
+        (work_dir / "performance" / save_dir / sub).mkdir(parents=True, exist_ok=True)
 
     manifest_path = seed_root / "run_manifest.json"
     resume_snapshot = None
