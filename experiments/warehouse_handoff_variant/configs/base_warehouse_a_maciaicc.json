@@ -1,0 +1,47 @@
+{
+  "task_id": "flex-warehouse-safe-20261118-95e0c41a",
+  "upstream": {
+    "repo": "https://github.com/yuchen-x/MacroMARL",
+    "commit": "f5899cd7b96bb3dbf7b265494a3ba8a15b2e3fe2",
+    "source_tarball_sha256": "9d1e71a220d293202f23d8528a8555d64f754ef6e8c3885b61e9c98b64873d11"
+  },
+  "algorithm": "MacIAICC",
+  "env_id": "OSD-D-v7",
+  "seed_list": [11, 22, 33],
+  "eval_seed_base": 7100,
+  "run": {
+    "n_agent": 3,
+    "n_env": 4,
+    "env_terminate_step": 200,
+    "total_epi": 40000,
+    "l_mode": 0,
+    "a_lr": 0.0005,
+    "c_lr": 0.0005,
+    "train_freq": 4,
+    "c_target_update_freq": 32,
+    "n_step_TD": 5,
+    "grad_clip_norm": 0.0,
+    "eps_start": 1.0,
+    "eps_end": 0.05,
+    "eps_stable_at": 10000,
+    "gamma": 1.0,
+    "a_rnn_layer_size": 32,
+    "c_rnn_layer_size": 64,
+    "h0_speed_ps": [27, 20, 20, 20],
+    "h1_speed_ps": [27, 20, 20, 20],
+    "d_pen": -20.0,
+    "tb_m_speed": 0.8,
+    "sample_epi": true,
+    "eval_policy": true,
+    "eval_freq": 100,
+    "eval_num_epi": 10,
+    "device": "cpu"
+  },
+  "checkpoint_interval_epi": 2000,
+  "evaluation": {
+    "episodes_per_model": 200,
+    "hooks": true,
+    "probe_window_steps": 20,
+    "probe_false_alarm_budget": 0.05
+  }
+}

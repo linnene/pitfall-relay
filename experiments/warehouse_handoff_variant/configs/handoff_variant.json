@@ -1,0 +1,32 @@
+{
+  "task_id": "flex-warehouse-handoff-variant-20261118-a92b6f31",
+  "base_task_id": "flex-warehouse-safe-20261118-95e0c41a",
+  "base_code_commit": "ed774c53762801a0c50096948ecb5a596792ac85",
+  "upstream_commit": "f5899cd7b96bb3dbf7b265494a3ba8a15b2e3fe2",
+  "base_config": "configs/base_warehouse_a_maciaicc.json",
+  "checkpoints": {
+    "11": "<remote>/runs/seed_11/checkpoints/epi_040000",
+    "22": "<remote>/runs/seed_22/checkpoints/epi_040000",
+    "33": "<remote>/runs/seed_33/checkpoints/epi_040000"
+  },
+  "stall": {
+    "intervals_per_episode": 2,
+    "min_length": 6,
+    "max_length": 14,
+    "salt": 20261118
+  },
+  "gate": {
+    "natural_episodes": 300,
+    "natural_eval_seed_base": 9100,
+    "controlled_pairs": 100,
+    "controlled_eval_seed_base": 9200
+  },
+  "probe": {
+    "episodes_per_policy": 3000,
+    "eval_seed_base": 9300,
+    "train_count": 500,
+    "cal_count": 500,
+    "include_decision_step": true,
+    "false_alarm_budget": 0.05
+  }
+}

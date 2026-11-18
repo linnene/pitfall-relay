@@ -46,7 +46,8 @@ def build_samples(episodes, agent, event_type, window, include_latent=True):
         h_out = arrays["h_out"]
         obs_dim = 18 if agent < 2 else 5
         act_dim = 4 if agent < 2 else 6
-        evs = [e for e in meta.get("events", []) if e.get("type") == event_type and int(e.get("agent", -1)) == agent]
+        evs = [e for e in meta.get("probe_events", meta.get("events", []))
+               if e.get("type") == event_type and int(e.get("agent", -1)) == agent]
         for e in evs:
             e = dict(e)
             e["_episode_index"] = ep_idx
@@ -536,6 +537,8 @@ def run_one(eval_dir, event_type, agent, train_count, cal_count, out_dir, seed=0
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--eval-dir", action="append", required=True)
+    parser.add_argument("--event", action="append", default=None,
+                        help="event_type:agent; repeat; default is the original task set")
     parser.add_argument("--out-dir", required=True)
     parser.add_argument("--train-count", type=int, default=100)
     parser.add_argument("--cal-count", type=int, default=40)
@@ -546,8 +549,15 @@ def main():
     args = parser.parse_args()
     Path(args.out_dir).mkdir(parents=True, exist_ok=True)
     summary = []
+    if args.event:
+        event_specs = []
+        for spec in args.event:
+            event_type, agent = spec.rsplit(":", 1)
+            event_specs.append((event_type, int(agent)))
+    else:
+        event_specs = [("handoff_failure", 2), ("tool_wait_timeout", 0), ("tool_wait_timeout", 1)]
     for i, eval_dir in enumerate(args.eval_dir):
-        for event_type, agent in (("handoff_failure", 2), ("tool_wait_timeout", 0), ("tool_wait_timeout", 1)):
+        for event_type, agent in event_specs:
             try:
                 summary.append(run_one(eval_dir, event_type, agent,
                                        args.train_count, args.cal_count,
