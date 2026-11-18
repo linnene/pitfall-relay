@@ -399,7 +399,8 @@ def bootstrap_diff(events, event_windows, scores, thresholds,
             "ci_low": float(lo), "ci_high": float(hi), "n_bootstrap": len(diffs)}
 
 
-def run_one(eval_dir, event_type, agent, train_count, cal_count, out_dir, seed=0):
+def run_one(eval_dir, event_type, agent, train_count, cal_count, out_dir, seed=0,
+            normal_mode="episode"):
     episodes = load_eval(eval_dir)
     if len(episodes) < train_count + cal_count + 1:
         raise ValueError(f"not enough episodes in {eval_dir}: {len(episodes)}")
@@ -413,10 +414,16 @@ def run_one(eval_dir, event_type, agent, train_count, cal_count, out_dir, seed=0
         shuffled = shuffled_latents(split, seed)
         for sample, latent in zip(split, shuffled):
             sample["latent_shuffled"] = latent
-    normal_cal = [s for s in cal if s["label"] == 0 and not any(
-        e["_episode_index"] == s["episode"] for e in cal_events)]
-    normal_test = [s for s in test if s["label"] == 0 and not any(
-        e["_episode_index"] == s["episode"] for e in test_events)]
+    if normal_mode == "window":
+        # Exploratory only: event episodes can supply normal stretches outside
+        # event windows.  This is not the pre-registered normal-episode FPR.
+        normal_cal = [s for s in cal if s["label"] == 0]
+        normal_test = [s for s in test if s["label"] == 0]
+    else:
+        normal_cal = [s for s in cal if s["label"] == 0 and not any(
+            e["_episode_index"] == s["episode"] for e in cal_events)]
+        normal_test = [s for s in test if s["label"] == 0 and not any(
+            e["_episode_index"] == s["episode"] for e in test_events)]
     event_eps = {e["_episode_index"] for e in test_events}
     normal_test_eps = {s["episode"] for s in normal_test}
     normal_cal_eps = {s["episode"] for s in normal_cal}
@@ -435,6 +442,7 @@ def run_one(eval_dir, event_type, agent, train_count, cal_count, out_dir, seed=0
         "eval_dir": str(eval_dir),
         "event_type": event_type,
         "agent": agent,
+        "normal_mode": normal_mode,
         "splits": {
             "train": [train_eps[0]["meta"]["seed"], train_eps[-1]["meta"]["seed"]],
             "cal": [cal_eps[0]["meta"]["seed"], cal_eps[-1]["meta"]["seed"]],
@@ -531,6 +539,9 @@ def main():
     parser.add_argument("--train-count", type=int, default=100)
     parser.add_argument("--cal-count", type=int, default=40)
     parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument("--normal-mode", choices=["episode", "window"], default="episode",
+                        help="episode: pre-registered event-free episodes; window: exploratory "
+                             "normal stretches outside event windows")
     args = parser.parse_args()
     Path(args.out_dir).mkdir(parents=True, exist_ok=True)
     summary = []
@@ -539,7 +550,8 @@ def main():
             try:
                 summary.append(run_one(eval_dir, event_type, agent,
                                        args.train_count, args.cal_count,
-                                       args.out_dir, seed=args.seed + i))
+                                       args.out_dir, seed=args.seed + i,
+                                       normal_mode=args.normal_mode))
             except Exception as exc:
                 summary.append({"eval_dir": eval_dir, "event_type": event_type, "agent": agent,
                                 "error": repr(exc)})

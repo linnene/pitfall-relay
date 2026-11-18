@@ -62,6 +62,7 @@ def main():
                 "eval_dir": result.get("eval_dir"),
                 "event_type": result.get("event_type"),
                 "agent": result.get("agent"),
+                "normal_mode": result.get("normal_mode", "episode"),
                 "counts": counts,
                 "baseline": base,
                 "real": real,
@@ -82,8 +83,15 @@ def main():
         key = (row["event_type"], row["agent"])
         by_key.setdefault(key, []).append(row)
     for key, group in sorted(by_key.items()):
+        formal = [row for row in group if row.get("normal_mode", "episode") == "episode"]
+        if not formal:
+            supported.append({"event_type": key[0], "agent": key[1],
+                              "policies": len(group), "qualified_policies": 0,
+                              "support": False, "qualified": [],
+                              "note": "only exploratory normal-window probes"})
+            continue
         qualified = []
-        for row in group:
+        for row in formal:
             paired = row.get("paired_baseline_vs_real") or {}
             paired_episode = row.get("paired_episode_baseline_vs_real") or {}
             if (row.get("delta_real_minus_baseline") is not None
@@ -94,13 +102,13 @@ def main():
                     and paired_episode["ci_low"] > 0.0):
                 qualified.append(row["eval_dir"])
         events_ok = all((row.get("counts") or {}).get("test_events", 0) >= 50
-                        for row in group)
+                        for row in formal)
         normal_ok = all((row.get("counts") or {}).get("test_normal_episodes", 0) >= 100
-                        for row in group)
+                        for row in formal)
         supported.append({
             "event_type": key[0],
             "agent": key[1],
-            "policies": len(group),
+            "policies": len(formal),
             "qualified_policies": len(qualified),
             "events_ok": events_ok,
             "normal_episodes_ok": normal_ok,
