@@ -214,6 +214,7 @@ def window_rows_for_events(test, events):
             out[idx] = (rows, pre, end)
             if end is not None:
                 prior_windows.append((step, end))
+    return out
 
 
 def evaluate_events(test, events, score, threshold, event_windows=None):
