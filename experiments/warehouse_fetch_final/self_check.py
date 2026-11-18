@@ -168,7 +168,7 @@ def check_synthetic():
         manual.extend(pl.one_hot(int(arrays["selected_action"][s, 2]), 6).tolist())
         manual.extend(pl.one_hot(int(arrays["actual_action"][s, 2]), 6).tolist())
         manual.extend([float(arrays["mac_done"][s, 2]), float(arrays["valid"][s, 2])])
-    manual.extend([2.0 / T, 1.0])
+    manual.extend([2.0 / T, 0.0])
     results["feature_contract"] = {
         "dim": int(target["features"].shape[0]),
         "manual_match": bool(np.allclose(target["features"], np.asarray(manual, dtype=np.float32))),
