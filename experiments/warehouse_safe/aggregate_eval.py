@@ -31,6 +31,8 @@ def summarize(summary):
         "successes": sum(1 for e in eps if e["success"]),
         "success_rate": float(np.mean([e["success"] for e in eps])) if eps else None,
         "mean_steps": float(np.mean([e["steps"] for e in eps])) if eps else None,
+        "mean_steps_success": float(np.mean([e["steps"] for e in eps if e["success"]]))
+        if any(e["success"] for e in eps) else None,
         "mean_return": float(np.mean([e["undiscounted_return"] for e in eps])) if eps else None,
         "event_counts": summary.get("event_counts"),
         "human_finish_steps": {
@@ -75,11 +77,15 @@ def main():
         seeds = sorted(set(by_seed_a) & set(by_seed_b))
         succ_diff = [int(by_seed_b[s]["success"]) - int(by_seed_a[s]["success"]) for s in seeds]
         step_diff = [by_seed_b[s]["steps"] - by_seed_a[s]["steps"] for s in seeds]
+        both_success = [s for s in seeds if by_seed_a[s]["success"] and by_seed_b[s]["success"]]
+        step_success_diff = [by_seed_b[s]["steps"] - by_seed_a[s]["steps"] for s in both_success]
         ret_diff = [by_seed_b[s]["undiscounted_return"] - by_seed_a[s]["undiscounted_return"] for s in seeds]
         result["paired"][label] = {
             "paired_episodes": len(seeds),
             "success_difference": paired_ci(succ_diff, rng),
             "steps_difference_final_minus_initial": paired_ci(step_diff, rng),
+            "success_pairs": len(both_success),
+            "steps_difference_success_pairs_final_minus_initial": paired_ci(step_success_diff, rng),
             "return_difference_final_minus_initial": paired_ci(ret_diff, rng),
         }
     Path(args.out).parent.mkdir(parents=True, exist_ok=True)
