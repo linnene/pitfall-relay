@@ -101,7 +101,7 @@ def main():
                     and paired_episode.get("ci_low") is not None
                     and paired_episode["ci_low"] > 0.0):
                 qualified.append(row["eval_dir"])
-        events_ok = all((row.get("counts") or {}).get("test_events", 0) >= 50
+        events_ok = all((row.get("counts") or {}).get("test_window_events", 0) >= 50
                         for row in formal)
         normal_ok = all((row.get("counts") or {}).get("test_normal_episodes", 0) >= 100
                         for row in formal)
