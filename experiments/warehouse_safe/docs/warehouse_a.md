@@ -48,8 +48,28 @@ bit-exact resume state.
 - Turtlebot action/timer/basket, Fetch serving state, ready objects, human
   states;
 - confirmed `handoff_failure`, `handoff_success`, `tool_wait_timeout`, plus
-  `serving_failed_start`; each event records the first next decision of the
-  event agent and the next relevant teammate decision.
+  `handoff_attempt_start`, `tool_wait_start`, `serving_failed_start`. Each
+  event records the next decision of the event agent and the next relevant
+  teammate decision.
+
+Event timing follows the upstream macros, not the step on which the next
+macro starts:
+
+- `handoff_attempt_start` is the step where Fetch selects `Pass_Obj_T0/T1`.
+- `handoff_failure`/`handoff_success` is the step where that pass completes
+  and the basket transfer is or is not observed. Completion is detected from
+  the pre-step timer (`0 < time_left <= 1`), not from the following
+  re-selection step.
+- `tool_wait_start` is the first step whose `Get_Tool` timer becomes negative
+  after the turtle reaches the table.
+- `tool_wait_timeout` is the `Get_Tool` done transition; v7 resets the timer
+  to `-1` on timeout, so the post-step timer cannot be used as the marker.
+
+On the early 200-episode calibration actor, a two-episode smoke produced 54
+handoff attempts, 44 failures, 9 successes, 25 tool waits and 14 timeouts.
+This is a plumbing check on a non-final policy, not an algorithm result.
+The initial event logic double-counted pass completions and missed timeouts;
+the corrected counts above are the first valid event semantics.
 
 Truth labels are stored in the episode JSON; detector features in
 `probe_latent.py` read only local observations and selected/actual action
@@ -59,6 +79,17 @@ features.
 Initial and final Actors are evaluated on identical episode seeds. Hook-on and
 hook-off runs use the same checkpoint and seeds; action sequences, steps,
 returns and success are compared exactly.
+
+## Probe alignment
+
+A probe sample at decision step `t` uses completed observations/actions through
+`t-1` plus the Actor forward hidden state at `t`. This keeps the local-history
+baseline and the latent arm on the same information; using `obs[t]` would give
+the baseline one step more than the latent. The shuffled-latent control uses a
+fixed cross-episode donor mapping so thresholds and paired bootstrap scores are
+frozen. Splits are complete episodes with separate eval seeds. The calibration
+threshold is the 95th percentile of normal calibration episode maxima; the
+test false-alarm rate and event recall are reported without refitting.
 
 ## Run
 
