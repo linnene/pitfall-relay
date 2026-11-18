@@ -131,6 +131,7 @@ class PoliceAgent(BaseAgent):
         self.route_roads = [279, 266, 971, 976, 975, 974]
         self.done = False
         self.route_seen = False
+        self.clear_counts = {}
 
     def blockades(self):
         out = []
@@ -143,11 +144,13 @@ class PoliceAgent(BaseAgent):
         if time_step < self.start_step:
             self.send_rest(time_step)
             return
-        blockades = self.blockades()
-        if time_step <= 8 or blockades:
+        blockades = [b for b in self.blockades()
+                     if self.clear_counts.get(as_int(b.get_id()), 0)
+                     < max(2, int(b.get_repaire_cost()) // 15 + 2)]
+        if time_step <= 8 or self.blockades():
             print(f"POLICE t={time_step} pos={as_int(self.me().get_position())} "
                   f"entities={len(list(self.world_model.get_entities()))} "
-                  f"blockades={[(as_int(b.get_id()), as_int(b.get_position())) for b in blockades]}",
+                  f"blockades={[(as_int(b.get_id()), as_int(b.get_position())) for b in self.blockades()]}",
                   flush=True)
         if blockades:
             self.route_seen = True
@@ -169,8 +172,11 @@ class PoliceAgent(BaseAgent):
                 if current != road:
                     self.move_to(time_step, road)
                     return
-                self.command(time_step, "clear", blockade=as_int(target.get_id()),
-                             road=road, repair_cost=int(target.get_repaire_cost()))
+                bid = as_int(target.get_id())
+                self.clear_counts[bid] = self.clear_counts.get(bid, 0) + 1
+                self.command(time_step, "clear", blockade=bid,
+                             road=road, repair_cost=int(target.get_repaire_cost()),
+                             attempt=self.clear_counts[bid])
                 self.send_clear(time_step, target.get_id())
                 return
         # Do not declare the route clear before collapse blockades have had a
