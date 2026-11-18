@@ -213,9 +213,11 @@ def main():
     import torch
     import gym
     from macro_marl.algs.pg_based.mac_iaicc_V import MacIAICC
+    from macro_marl.cores.pg_based.mac_niacc.utils import (
+        save_train_data, save_test_data, save_policies,
+    )
     from macro_marl.cores.pg_based.mac_iaicc.utils import (
-        save_checkpoint, load_checkpoint, save_policies,
-        save_train_data, save_test_data,
+        save_checkpoint, load_checkpoint,
     )
 
     torch.set_num_threads(int(args.torch_threads))
