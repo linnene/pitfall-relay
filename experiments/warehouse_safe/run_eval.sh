@@ -19,6 +19,10 @@ for seed in 11 22 33; do
     ckpt="$init_dir"
     [ "$phase" = final ] && ckpt="$final_dir"
     out="$D/runs/eval/seed${seed}_${phase}"
+    if [ -f "$out/summary.json" ]; then
+      echo "=== $phase seed=$seed already complete: $out"
+      continue
+    fi
     echo "=== $phase seed=$seed ckpt=$ckpt $(date -Is)"
     PYTHONPATH="$D/MacroMARL/src" "$D/envs/macro/bin/python" eval_policy.py \
       --upstream-root "$D/MacroMARL" \
@@ -30,6 +34,10 @@ for seed in 11 22 33; do
     echo "rc=$? $(date -Is)"
   done
   # Hook-off paired subset on the same final checkpoint and first 20 seeds.
+  if [ -f "$D/runs/eval/seed${seed}_final_off/summary.json" ]; then
+    echo "=== hook-off seed=$seed already complete"
+    continue
+  fi
   PYTHONPATH="$D/MacroMARL/src" "$D/envs/macro/bin/python" eval_policy.py \
     --upstream-root "$D/MacroMARL" \
     --config configs/warehouse_a_maciaicc.json \
