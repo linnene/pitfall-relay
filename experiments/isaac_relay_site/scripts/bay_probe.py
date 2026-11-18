@@ -19,7 +19,7 @@ SIM_APP = SimulationApp({"headless": True, "width": 1280, "height": 720})
 
 import numpy as np
 import omni.usd
-from action_msgs.msg import GoalStatus
+from action_msgs.msg import GoalStatus, GoalStatusArray
 from isaacsim.core.api import World
 from isaacsim.core.utils.extensions import enable_extension
 
@@ -122,6 +122,7 @@ class Probe:
         self.map_yaml = mapgen.write_map(os.path.join(OUT_DIR, "map"))
         self.stacks = {}
         self.ros = None
+        self.action_status = {name: [] for name in self.names}
         self.step_count = 0
 
     def log(self, kind, **fields):
@@ -130,6 +131,11 @@ class Probe:
         rec.update(fields)
         self.events.append(rec)
         print("EVENT", json.dumps(rec, ensure_ascii=False), flush=True)
+
+    def status_cb(self, name, msg):
+        self.action_status[name].append([
+            int(s.status) for s in msg.status_list
+        ])
 
     def step(self):
         self.ros.spin(0.0)
@@ -170,6 +176,11 @@ class Probe:
         for name in self.names:
             robots.set_lidar_enabled(name, False)
         self.ros = FleetRos(self.names, starts=config.ROBOT_STARTS)
+        for name in self.names:
+            self.ros.node.create_subscription(
+                GoalStatusArray, f"/{name}/navigate_to_pose/_action/status",
+                lambda msg, n=name: self.status_cb(n, msg), 10,
+            )
         nav2_dir = os.path.join(OUT_DIR, "nav2")
         nodes = [
             "controller_server", "smoother_server", "planner_server",
@@ -252,6 +263,7 @@ class Probe:
                 "sim_t": round(sim_time(self.world), 3),
                 "plan_msgs": self.ros.plan_count[name],
                 "cmd_vel_msgs": self.ros.cmd_count[name],
+                "action_status_history": self.action_status.get(name, []),
                 "costmap_entrance": self.costmap_value(name, 2.2, config.LANES[name]),
                 "costmap_goal": self.costmap_value(name, 4.2, config.LANES[name]),
             }
