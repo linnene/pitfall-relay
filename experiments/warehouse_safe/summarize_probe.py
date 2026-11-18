@@ -64,6 +64,7 @@ def main():
                 "baseline": base,
                 "real": real,
                 "shuffled": shuffled,
+                "timing": {k: v for k, v in (result.get("timing") or {}).items() if k != "per_event"},
                 "delta_real_minus_baseline": delta,
                 "paired_baseline_vs_real": paired,
                 "paired_shuffled_vs_real": paired_shuffled,

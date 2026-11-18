@@ -248,6 +248,67 @@ def normal_fpr(test, score, threshold):
     }
 
 
+def timing_comparison(result):
+    """Compare first local-history alarm, first real-latent alarm and deadline."""
+    arms = result.get("arms", {})
+    base = {(r["episode"], r["event_step"]): r
+            for r in arms.get("baseline", {}).get("event_results", [])}
+    real = {(r["episode"], r["event_step"]): r
+            for r in arms.get("real", {}).get("event_results", [])}
+    shuffled = {(r["episode"], r["event_step"]): r
+                for r in arms.get("shuffled", {}).get("event_results", [])}
+    rows = []
+    for key, b in base.items():
+        r = real.get(key)
+        s = shuffled.get(key)
+        end = b.get("effective_deadline")
+        step = b["event_step"]
+        rows.append({
+            "episode": key[0],
+            "event_step": step,
+            "deadline": b.get("deadline"),
+            "effective_deadline": end,
+            "window_steps": (int(end) - step) if end is not None else None,
+            "reachable": bool(b.get("reachable")),
+            "local_alarm_step": b.get("first_alarm_step"),
+            "latent_alarm_step": r.get("first_alarm_step") if r else None,
+            "shuffled_alarm_step": s.get("first_alarm_step") if s else None,
+            "local_delay": b.get("delay"),
+            "latent_delay": r.get("delay") if r else None,
+            "shuffled_delay": s.get("delay") if s else None,
+            "local_early": bool(b.get("early")),
+            "latent_early": bool(r.get("early")) if r else None,
+        })
+
+    def median(values):
+        vals = [v for v in values if v is not None]
+        return float(np.median(vals)) if vals else None
+
+    reachable = [x for x in rows if x["reachable"]]
+    both = [x for x in rows if x["local_alarm_step"] is not None and x["latent_alarm_step"] is not None]
+    return {
+        "events": len(rows),
+        "reachable_events": len(reachable),
+        "reachable_window_coverage": (len(reachable) / len(rows)) if rows else None,
+        "median_decision_window_steps": median([x["window_steps"] for x in reachable]),
+        "local_alarm_events": sum(1 for x in rows if x["local_alarm_step"] is not None),
+        "latent_alarm_events": sum(1 for x in rows if x["latent_alarm_step"] is not None),
+        "both_alarm_events": len(both),
+        "local_only_alarm_events": sum(1 for x in rows if x["local_alarm_step"] is not None
+                                       and x["latent_alarm_step"] is None),
+        "latent_only_alarm_events": sum(1 for x in rows if x["local_alarm_step"] is None
+                                        and x["latent_alarm_step"] is not None),
+        "median_local_delay": median([x["local_delay"] for x in rows]),
+        "median_latent_delay": median([x["latent_delay"] for x in rows]),
+        "median_shuffled_delay": median([x["shuffled_delay"] for x in rows]),
+        "median_local_minus_latent_delay": median(
+            [x["local_delay"] - x["latent_delay"] for x in both]),
+        "local_early_alarm_events": sum(1 for x in rows if x["local_early"]),
+        "latent_early_alarm_events": sum(1 for x in rows if x["latent_early"]),
+        "per_event": rows,
+    }
+
+
 def bootstrap_diff(test, events, scores, thresholds, baseline_name="baseline", latent_name="real"):
     # Paired event-level difference; resample episodes as clusters and keep
     # the same event set for both arms.
@@ -378,6 +439,7 @@ def run_one(eval_dir, event_type, agent, train_count, cal_count, out_dir, seed=0
         result["paired_shuffled_vs_real"] = bootstrap_diff(
             test, test_events, scores, thresholds,
             baseline_name="shuffled", latent_name="real")
+    result["timing"] = timing_comparison(result)
     Path(out_dir).mkdir(parents=True, exist_ok=True)
     arrays = {
         "feature": np.stack([s["features"] for s in test]) if test else np.zeros((0, 0), dtype=np.float32),
