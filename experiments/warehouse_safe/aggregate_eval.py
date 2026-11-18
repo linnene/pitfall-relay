@@ -37,6 +37,12 @@ def summarize(summary):
             str(i): [e.get("human_finish_steps", [None, None])[i] for e in eps]
             for i in range(2)
         },
+        "human_finish_mean": {
+            str(i): float(np.mean([e["human_finish_steps"][i] for e in eps
+                                   if e.get("human_finish_steps", [None, None])[i] is not None]))
+            if any(e.get("human_finish_steps", [None, None])[i] is not None for e in eps) else None
+            for i in range(2)
+        },
     }
 
 
