@@ -188,18 +188,33 @@ def install_step_wrappers(env, recorder):
                 before_basket = np.asarray(turtle.objs_in_basket, dtype=np.float32).copy()
                 before_action = int(turtle.cur_action.idx) if turtle.cur_action is not None else -1
                 before_time = float(turtle.cur_action_time_left)
+                before_done = bool(turtle.cur_action_done)
                 reward = original_step(action, humans)
+                after_action = int(turtle.cur_action.idx) if turtle.cur_action is not None else -1
+                after_time = float(turtle.cur_action_time_left)
+                after_done = bool(turtle.cur_action_done)
                 after_basket = np.asarray(turtle.objs_in_basket, dtype=np.float32).copy()
-                gained = float(np.sum(after_basket - before_basket))
-                if (before_action == 3 and bool(turtle.cur_action_done)
-                        and float(turtle.cur_action_time_left) <= -turtle.get_tool_wait + 1e-9
-                        and gained <= 0.0):
+                # Get_Tool waits only after the turtle has reached the table.  A
+                # wait starts on the first step whose timer becomes negative.
+                was_waiting = before_action == 3 and before_time < 0.0 and not before_done
+                if after_action == 3 and after_time < 0.0 and not was_waiting:
+                    recorder.append_event({
+                        "type": "tool_wait_start",
+                        "agent": agent_idx,
+                        "turtle_action": after_action,
+                        "time_left": after_time,
+                    })
+                # Get_Tool can only finish by its wait timer expiring; v7 uses
+                # `<= -get_tool_wait` and then resets the timer to -1, so the
+                # done transition is the reliable timeout marker.
+                if before_action == 3 and not before_done and after_done:
                     recorder.append_event({
                         "type": "tool_wait_timeout",
                         "agent": agent_idx,
                         "fetch_action": int(env.agents[2].cur_action.idx) if env.agents[2].cur_action is not None else -1,
                         "turtle_action": before_action,
-                        "time_left": float(turtle.cur_action_time_left),
+                        "time_left_before": before_time,
+                        "time_left_after": after_time,
                         "basket": after_basket.tolist(),
                     })
                 return reward
@@ -214,11 +229,25 @@ def install_step_wrappers(env, recorder):
         before_time = float(fetch.cur_action_time_left)
         before_baskets = [np.asarray(t.objs_in_basket, dtype=np.float32).copy() for t in agents[:2]]
         before_ready = np.asarray(fetch.ready_objs, dtype=np.float32).copy()
+        before_done = bool(fetch.cur_action_done)
         reward = original_fetch(action, agents)
         after_baskets = [np.asarray(t.objs_in_basket, dtype=np.float32).copy() for t in agents[:2]]
         after_failed = bool(fetch.serving_failed)
         after_action = int(fetch.cur_action.idx) if fetch.cur_action is not None else -1
-        completed = before_action in (1, 2) and before_time <= 0.0
+        # A Pass_Obj macro-action completes on the step where its pre-step timer
+        # is positive and <= 1 (the timer is decremented at the start of step).
+        # The following step only starts the next macro-action and must not be
+        # counted as a second completion.
+        completed = (before_action in (1, 2) and not before_done
+                     and 0.0 < before_time <= 1.0 + 1e-9)
+        if before_done and after_action in (1, 2):
+            recorder.append_event({
+                "type": "handoff_attempt_start",
+                "agent": 2,
+                "target": after_action - 1,
+                "fetch_action": after_action,
+                "ready_before": before_ready.tolist(),
+            })
         if completed and before_failed:
             recorder.append_event({
                 "type": "handoff_failure",
@@ -451,7 +480,8 @@ def main():
             "discounted_return": discounted,
             "events": events,
             "event_counts": {name: sum(1 for e in events if e["type"] == name)
-                             for name in ("handoff_failure", "handoff_success", "tool_wait_timeout")},
+                             for name in ("handoff_attempt_start", "handoff_failure", "handoff_success",
+                                          "tool_wait_start", "tool_wait_timeout")},
             "final_human_finished": [bool(h.whole_task_finished) for h in env.unwrapped.humans],
             "final_finish_count": len(env.unwrapped.finish_serve_humans),
             "label": args.label,
@@ -486,8 +516,9 @@ def main():
                          if episode_summaries else None),
         "mean_steps": float(np.mean([e["steps"] for e in episode_summaries])) if episode_summaries else None,
         "mean_return": float(np.mean([e["undiscounted_return"] for e in episode_summaries])) if episode_summaries else None,
-        "event_counts": {name: sum(e["event_counts"][name] for e in episode_summaries)
-                         for name in ("handoff_failure", "handoff_success", "tool_wait_timeout")},
+        "event_counts": {name: sum(e["event_counts"].get(name, 0) for e in episode_summaries)
+                         for name in ("handoff_attempt_start", "handoff_failure", "handoff_success",
+                                      "tool_wait_start", "tool_wait_timeout")},
         "episodes": episode_summaries,
         "hooks": args.hooks,
         "flex_sha": args.flex_sha,
