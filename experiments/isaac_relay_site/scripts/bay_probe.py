@@ -48,15 +48,16 @@ def sim_time(world):
     return float(world.current_time)
 
 
-def configure_layout(widths=None, shape="straight"):
+def configure_layout(widths=None, shape="straight", single=False):
     config.ROOM_HALF_X = 7.0
     config.ROOM_HALF_Y = 5.0
     config.WALL_THICKNESS = 0.2
     config.WALL_HEIGHT = 1.5
     config.MAP_RESOLUTION = 0.05
     config.MAP_ORIGIN = (-config.ROOM_HALF_X, -config.ROOM_HALF_Y)
-    config.ROBOT_NAMES = ["robot0", "robot1", "robot2"]
-    config.LANES = {"robot0": -3.0, "robot1": 0.0, "robot2": 3.0}
+    config.ROBOT_NAMES = ["robot0"] if single else ["robot0", "robot1", "robot2"]
+    config.LANES = {"robot0": 0.0} if single else {
+        "robot0": -3.0, "robot1": 0.0, "robot2": 3.0}
     widths = widths or [1.8, 1.4, 1.2]
     config.BAY_WIDTHS = dict(zip(config.ROBOT_NAMES, widths))
     config.BAY_SHAPE = shape
@@ -279,10 +280,13 @@ def main():
     parser.add_argument("--widths", default="1.8,1.4,1.2",
                         help="comma-separated bay clear widths for robot0/1/2")
     parser.add_argument("--shape", choices=["straight", "l"], default="straight")
+    parser.add_argument("--single", action="store_true")
     parser.add_argument("--goal-yaw", type=float, default=None)
     args = parser.parse_args()
     widths = [float(x) for x in args.widths.split(",")]
-    configure_layout(widths, args.shape)
+    if args.single:
+        widths = widths[:1]
+    configure_layout(widths, args.shape, single=args.single)
     goal_yaw = args.goal_yaw
     if goal_yaw is None:
         goal_yaw = math.pi / 2.0 if args.shape == "l" else 0.0
