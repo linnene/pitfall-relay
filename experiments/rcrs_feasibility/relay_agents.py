@@ -136,6 +136,11 @@ class PoliceAgent(BaseAgent):
             self.send_rest(time_step)
             return
         blockades = self.blockades()
+        if time_step <= 8 or blockades:
+            print(f"POLICE t={time_step} pos={as_int(self.me().get_position())} "
+                  f"entities={len(list(self.world_model.get_entities()))} "
+                  f"blockades={[(as_int(b.get_id()), as_int(b.get_position())) for b in blockades]}",
+                  flush=True)
         if blockades:
             self.route_seen = True
             # Prefer blockades on the ambulance route or the current road.
@@ -191,6 +196,9 @@ class AmbulanceAgent(BaseAgent):
             self.started = True
             self.log(time_step, "ambulance_start",
                      position=as_int(self.me().get_position()))
+        if time_step <= 8:
+            print(f"AMB t={time_step} pos={as_int(self.me().get_position())} "
+                  f"loaded={self.loaded} delivered={self.delivered}", flush=True)
         if self.delivered:
             self.send_rest(time_step)
             return
