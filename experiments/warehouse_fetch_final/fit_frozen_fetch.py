@@ -3,6 +3,7 @@
 import argparse
 import hashlib
 import json
+import os
 import math
 import pickle
 import sys
@@ -12,7 +13,8 @@ from pathlib import Path
 import numpy as np
 
 HERE = Path(__file__).resolve().parent
-sys.path.insert(0, str(HERE.parent / "warehouse_safe"))
+_probe_dir = os.environ.get("PROBE_CODE_DIR")
+sys.path.insert(0, _probe_dir if _probe_dir else str(HERE.parent / "warehouse_safe"))
 import probe_latent as pl  # noqa: E402
 
 
