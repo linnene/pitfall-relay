@@ -27,9 +27,15 @@ from rcrs_core.entities.refuge import Refuge
 from rcrs_core.entities.road import Road
 
 
+def as_int(value):
+    if hasattr(value, "get_value"):
+        value = value.get_value()
+    return int(value)
+
+
 def entity_snapshot(entity):
     name = entity.__class__.__name__
-    item = {"id": int(entity.get_id().get_value()), "type": name}
+    item = {"id": as_int(entity.get_id()), "type": name}
     try:
         item["x"] = int(entity.get_x())
         item["y"] = int(entity.get_y())
@@ -37,20 +43,20 @@ def entity_snapshot(entity):
         pass
     if isinstance(entity, Human):
         item.update({
-            "position": int(entity.get_position()),
+            "position": as_int(entity.get_position()),
             "hp": int(entity.get_hp()),
             "damage": int(entity.get_damage()),
             "buriedness": int(entity.get_buriedness()),
         })
     if isinstance(entity, Area):
-        item["blockades"] = [int(b) for b in entity.get_blockades()]
+        item["blockades"] = [as_int(b) for b in entity.get_blockades()]
     if isinstance(entity, Road):
         item["neighbours"] = [
-            int(e.get_neighbour()) for e in entity.get_edges()
+            as_int(e.get_neighbour()) for e in entity.get_edges()
             if e.get_neighbour() is not None
         ]
     if isinstance(entity, Blockade):
-        item["position"] = int(entity.get_position())
+        item["position"] = as_int(entity.get_position())
         item["repair_cost"] = int(entity.get_repaire_cost())
     if isinstance(entity, Building):
         item["fieryness"] = int(entity.get_fieryness())
@@ -84,7 +90,7 @@ class DumpAgent(Agent):
                 "time": int(time_step),
                 "agent_id": int(self.get_id().get_value()),
                 "role": self.role,
-                "self_position": int(me.get_position()),
+                "self_position": as_int(me.get_position()),
                 "self_x": int(me.get_x()),
                 "self_y": int(me.get_y()),
                 "self_hp": int(me.get_hp()),
