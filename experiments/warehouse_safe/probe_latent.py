@@ -181,22 +181,43 @@ def effective_deadline(event, episode_events):
     return min(int(deadline), min(later)) if later else int(deadline)
 
 
-def evaluate_events(test, events, score, threshold):
-    by_ep = defaultdict(list)
+def window_rows_for_events(test, events):
+    """Return (window_rows, pre_rows, effective_deadline) per event, once.
+
+    Event windows are truncated at the next event in the same episode and use
+    only that event agent's valid decision samples.
+    """
+    samples_by_ep = defaultdict(list)
     for s in test:
-        by_ep[s["episode"]].append(s)
+        samples_by_ep[s["episode"]].append(s)
     events_by_ep = defaultdict(list)
-    for e in events:
-        events_by_ep[e["_episode_index"]].append(e)
+    for idx, e in enumerate(events):
+        events_by_ep[e["_episode_index"]].append((idx, e))
+    out = [None] * len(events)
+    for ep, items in events_by_ep.items():
+        items.sort(key=lambda pair: int(pair[1]["step"]))
+        episode_events = [pair[1] for pair in items]
+        for idx, e in items:
+            step = int(e["step"])
+            end = effective_deadline(e, episode_events)
+            rows = [s for s in samples_by_ep.get(ep, [])
+                    if s["agent"] == e.get("agent") and step < s["step"]
+                    and end is not None and s["step"] < end]
+            pre = [s for s in samples_by_ep.get(ep, [])
+                   if s["agent"] == e.get("agent") and s["step"] < step]
+            out[idx] = (rows, pre, end)
+    return out
+
+
+def evaluate_events(test, events, score, threshold, event_windows=None):
+    if event_windows is None:
+        event_windows = window_rows_for_events(test, events)
     results = []
-    for e in events:
+    for idx, e in enumerate(events):
         ep = e["_episode_index"]
         step = int(e["step"])
         deadline = e.get("next_relevant_decision_step")
-        window_end = effective_deadline(e, events_by_ep[ep])
-        rows = [s for s in by_ep.get(ep, []) if s["agent"] == e.get("agent")]
-        window_rows = [s for s in rows if step < s["step"] and window_end is not None and s["step"] < window_end]
-        pre_rows = [s for s in rows if s["step"] < step]
+        window_rows, pre_rows, window_end = event_windows[idx]
         if not window_rows:
             results.append({"episode": ep, "event_step": step, "deadline": deadline,
                             "effective_deadline": window_end,
@@ -207,8 +228,7 @@ def evaluate_events(test, events, score, threshold):
         alarm = scores >= threshold
         first_alarm = None
         if alarm.any():
-            idx = int(np.argmax(alarm))
-            first_alarm = int(window_rows[idx]["step"])
+            first_alarm = int(window_rows[int(np.argmax(alarm))]["step"])
         pre_scores = score(pre_rows) if pre_rows else np.zeros((0,))
         results.append({
             "episode": ep,
@@ -309,26 +329,33 @@ def timing_comparison(result):
     }
 
 
-def bootstrap_episode_diff(test, events, scores, thresholds,
+def _event_hits(events, event_windows, scores, thresholds, baseline_name, latent_name):
+    """Precompute per-event arm hits and group event indices by episode."""
+    by_ep = defaultdict(list)
+    base_hits = []
+    lat_hits = []
+    for idx, e in enumerate(events):
+        rows, _, _ = event_windows[idx]
+        if not rows:
+            continue
+        base = bool((scores[baseline_name](rows) >= thresholds[baseline_name]).any())
+        lat = bool((scores[latent_name](rows) >= thresholds[latent_name]).any())
+        by_ep[e["_episode_index"]].append(len(base_hits))
+        base_hits.append(base)
+        lat_hits.append(lat)
+    return by_ep, np.asarray(base_hits, dtype=np.float32), np.asarray(lat_hits, dtype=np.float32)
+
+
+def bootstrap_episode_diff(events, event_windows, scores, thresholds,
                            baseline_name="baseline", latent_name="real"):
     """Episode-level paired recall difference, resampling complete episodes."""
-    ep_ids = sorted(set(e["_episode_index"] for e in events))
-    by_ep = {ep: [e for e in events if e["_episode_index"] == ep] for ep in ep_ids}
+    by_ep, base_hits, lat_hits = _event_hits(
+        events, event_windows, scores, thresholds, baseline_name, latent_name)
     rates = []
-    for ep in ep_ids:
-        base_hits = []
-        lat_hits = []
-        for e in by_ep[ep]:
-            window_end = effective_deadline(e, by_ep[ep])
-            rows = [s for s in test if s["episode"] == ep and s["agent"] == e.get("agent")
-                    and e["step"] < s["step"] and window_end is not None
-                    and s["step"] < window_end]
-            if not rows:
-                continue
-            base_hits.append(bool((scores[baseline_name](rows) >= thresholds[baseline_name]).any()))
-            lat_hits.append(bool((scores[latent_name](rows) >= thresholds[latent_name]).any()))
-        if base_hits:
-            rates.append((ep, float(np.mean(base_hits)), float(np.mean(lat_hits))))
+    for ep, idxs in by_ep.items():
+        if not idxs:
+            continue
+        rates.append((ep, float(np.mean(base_hits[idxs])), float(np.mean(lat_hits[idxs]))))
     if not rates:
         return None
     rng = np.random.RandomState(4343)
@@ -342,35 +369,26 @@ def bootstrap_episode_diff(test, events, scores, thresholds,
             "n_episodes": len(rates)}
 
 
-def bootstrap_diff(test, events, scores, thresholds, baseline_name="baseline", latent_name="real"):
-    # Paired event-level difference; resample episodes as clusters and keep
-    # the same event set for both arms.
-    ep_ids = sorted(set(e["_episode_index"] for e in events))
-    by_ep = {ep: [e for e in events if e["_episode_index"] == ep] for ep in ep_ids}
+def bootstrap_diff(events, event_windows, scores, thresholds,
+                   baseline_name="baseline", latent_name="real"):
+    """Event-level paired recall difference, resampling whole episodes."""
+    by_ep, base_hits, lat_hits = _event_hits(
+        events, event_windows, scores, thresholds, baseline_name, latent_name)
+    ep_ids = sorted(by_ep)
+    if not ep_ids:
+        return None
     rng = np.random.RandomState(4242)
     diffs = []
     for _ in range(1000):
         draw = rng.choice(ep_ids, size=len(ep_ids), replace=True)
-        base_hits = []
-        lat_hits = []
-        for ep in draw:
-            for e in by_ep[ep]:
-                window_end = effective_deadline(e, by_ep[ep])
-                rows = [s for s in test if s["episode"] == ep and s["agent"] == e.get("agent")
-                        and e["step"] < s["step"] and window_end is not None
-                        and s["step"] < window_end]
-                if not rows:
-                    continue
-                base_scores = scores[baseline_name](rows)
-                lat_scores = scores[latent_name](rows)
-                base_hits.append(bool((base_scores >= thresholds[baseline_name]).any()))
-                lat_hits.append(bool((lat_scores >= thresholds[latent_name]).any()))
-        if base_hits and lat_hits:
-            diffs.append(float(np.mean(lat_hits) - np.mean(base_hits)))
+        idxs = [i for ep in draw for i in by_ep[ep]]
+        if idxs:
+            diffs.append(float(np.mean(lat_hits[idxs]) - np.mean(base_hits[idxs])))
     if not diffs:
         return None
     lo, hi = np.quantile(diffs, [0.025, 0.975])
-    return {"mean": float(np.mean(diffs)), "ci_low": float(lo), "ci_high": float(hi), "n_bootstrap": len(diffs)}
+    return {"mean": float(np.mean(lat_hits) - np.mean(base_hits)),
+            "ci_low": float(lo), "ci_high": float(hi), "n_bootstrap": len(diffs)}
 
 
 def run_one(eval_dir, event_type, agent, train_count, cal_count, out_dir, seed=0):
@@ -427,6 +445,7 @@ def run_one(eval_dir, event_type, agent, train_count, cal_count, out_dir, seed=0
     }
     scores = {}
     thresholds = {}
+    event_windows = window_rows_for_events(test, test_events)
     for arm in ("baseline", "real", "shuffled"):
         if arm == "shuffled" and not any(s["latent"].size for s in train):
             continue
@@ -437,7 +456,7 @@ def run_one(eval_dir, event_type, agent, train_count, cal_count, out_dir, seed=0
             continue
         thresholds[arm] = threshold
         scores[arm] = score
-        event_results = evaluate_events(test, test_events, score, threshold)
+        event_results = evaluate_events(test, test_events, score, threshold, event_windows)
         normal = normal_fpr(normal_test, score, threshold)
         test_scores = score(test)
         labels = np.array([s["label"] for s in test], dtype=np.int32)
@@ -465,18 +484,18 @@ def run_one(eval_dir, event_type, agent, train_count, cal_count, out_dir, seed=0
             "pr_auc": pr_auc,
         }
     if "baseline" in thresholds and "real" in thresholds:
-        paired = bootstrap_diff(test, test_events, scores, thresholds,
+        paired = bootstrap_diff(test_events, event_windows, scores, thresholds,
                                 baseline_name="baseline", latent_name="real")
         result["paired_baseline_vs_real"] = paired
         result["paired_episode_baseline_vs_real"] = bootstrap_episode_diff(
-            test, test_events, scores, thresholds,
+            test_events, event_windows, scores, thresholds,
             baseline_name="baseline", latent_name="real")
     if "shuffled" in thresholds and "real" in thresholds:
         result["paired_shuffled_vs_real"] = bootstrap_diff(
-            test, test_events, scores, thresholds,
+            test_events, event_windows, scores, thresholds,
             baseline_name="shuffled", latent_name="real")
         result["paired_episode_shuffled_vs_real"] = bootstrap_episode_diff(
-            test, test_events, scores, thresholds,
+            test_events, event_windows, scores, thresholds,
             baseline_name="shuffled", latent_name="real")
     result["timing"] = timing_comparison(result)
     Path(out_dir).mkdir(parents=True, exist_ok=True)
