@@ -25,8 +25,9 @@ def load_eval(eval_dir):
     episodes = []
     for path in sorted(Path(eval_dir).glob("episodes/*.json")):
         meta = json.loads(path.read_text())
-        npz = np.load(path.with_suffix(".npz"))
-        episodes.append({"meta": meta, "arrays": npz, "path": str(path)})
+        with np.load(path.with_suffix(".npz")) as handle:
+            arrays = {name: handle[name] for name in handle.files}
+        episodes.append({"meta": meta, "arrays": arrays, "path": str(path)})
     return episodes
 
 
