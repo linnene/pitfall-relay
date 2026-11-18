@@ -2,15 +2,18 @@
 # Fixed-actor evaluation for completed Warehouse-A seeds.
 set -u
 D=/data/amgg_flex_demo/flex-warehouse-safe-20261118-95e0c41a
-cd "$D/FLEX/experiments/warehouse_safe" || exit 1
-FLEX_SHA=$(cd "$D/FLEX" && git rev-parse HEAD)
+FLEX_ROOT=${FLEX_ROOT:-$D/FLEX_eval}
+cd "$FLEX_ROOT/experiments/warehouse_safe" || exit 1
+FLEX_SHA=$(cd "$FLEX_ROOT" && git rev-parse HEAD)
 export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1
 mkdir -p "$D/logs/eval" "$D/runs/eval"
 for seed in 11 22 33; do
   root="$D/runs/seed_${seed}/checkpoints"
   [ -d "$root" ] || { echo "missing $root"; continue; }
-  final_dir=$(find "$root" -maxdepth 1 -type d -name 'epi_*' | sort | tail -1)
+  final_dir="$root/epi_040000"
   init_dir="$root/epi_000000"
+  [ -f "$final_dir/manifest.json" ] || { echo "missing final checkpoint $final_dir"; continue; }
+  [ -f "$init_dir/manifest.json" ] || { echo "missing initial checkpoint $init_dir"; continue; }
   eval_seed=$((7100 + seed))
   for phase in initial final; do
     ckpt="$init_dir"
