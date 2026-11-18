@@ -92,13 +92,21 @@ class BaseAgent(Agent):
         seen = {as_int(start.get_id())}
         while queue:
             area, path = queue.popleft()
-            for nxt in self.neighbours(area):
-                nid = as_int(nxt.get_id())
+            for edge in area.get_edges():
+                n = edge.get_neighbour()
+                if n is None or as_int(n) == 0:
+                    continue
+                nid = as_int(n)
                 if nid in seen:
                     continue
                 new_path = path + [nid]
                 if nid == target_id:
                     return new_path
+                nxt = self.world_model.get_entity(n)
+                if not isinstance(nxt, (Road, Building)):
+                    continue
+                if isinstance(nxt, Road) and nxt.get_blockades():
+                    continue
                 seen.add(nid)
                 queue.append((nxt, new_path))
         return None
@@ -143,14 +151,19 @@ class PoliceAgent(BaseAgent):
                   flush=True)
         if blockades:
             self.route_seen = True
-            # Prefer blockades on the ambulance route or the current road.
             current = as_int(self.me().get_position())
+            # Clear a blockade on the current road first; otherwise approach
+            # the nearest route blockade.
             target = None
             for b in blockades:
-                pos = as_int(b.get_position())
-                if pos in self.route_roads or pos == current:
+                if as_int(b.get_position()) == current:
                     target = b
                     break
+            if target is None:
+                for b in blockades:
+                    if as_int(b.get_position()) in self.route_roads:
+                        target = b
+                        break
             if target is not None:
                 road = as_int(target.get_position())
                 if current != road:
