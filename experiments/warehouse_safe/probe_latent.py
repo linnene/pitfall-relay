@@ -8,6 +8,7 @@ as detector inputs. Labels come from the separately recorded event log.
 
 import argparse
 import json
+import math
 from collections import defaultdict
 from pathlib import Path
 
@@ -166,7 +167,12 @@ def threshold_from_normal(cal_samples, score):
         maxima.append(float(np.max(score(rows))))
     if not maxima:
         return None, []
-    threshold = float(np.quantile(np.array(maxima), 0.95, interpolation="higher"))
+    # Pre-registered order statistic: ceil((n+1)*0.95); strict > alarm.
+    # If k exceeds n, no calibration alarm point exists.
+    values = np.sort(np.asarray(maxima, dtype=float))
+    n = len(values)
+    k = int(math.ceil((n + 1) * 0.95))
+    threshold = float(values[k - 1]) if k <= n else float("inf")
     return threshold, maxima
 
 
@@ -235,7 +241,7 @@ def evaluate_events(test, events, score, threshold, event_windows=None):
                             "delay": None, "window_covered": False})
             continue
         scores = score(window_rows)
-        alarm = scores >= threshold
+        alarm = scores > threshold
         first_alarm = None
         if alarm.any():
             first_alarm = int(window_rows[int(np.argmax(alarm))]["step"])
@@ -249,7 +255,7 @@ def evaluate_events(test, events, score, threshold, event_windows=None):
             "window_steps": int(window_end) - step,
             "window_covered": True,
             "recalled": bool(alarm.any()),
-            "early": bool((pre_scores >= threshold).any()) if len(pre_scores) else False,
+            "early": bool((pre_scores > threshold).any()) if len(pre_scores) else False,
             "delay": (first_alarm - step) if first_alarm is not None else None,
             "first_alarm_step": first_alarm,
             "max_window_score": float(np.max(scores)) if len(scores) else None,
@@ -268,8 +274,8 @@ def normal_fpr(test, score, threshold):
         sc = score(rows)
         if len(sc) == 0:
             continue
-        ep_alarm.append(bool((sc >= threshold).any()))
-        decision_alarm += int((sc >= threshold).sum())
+        ep_alarm.append(bool((sc > threshold).any()))
+        decision_alarm += int((sc > threshold).sum())
         decision_total += len(sc)
     return {
         "episodes": len(ep_alarm),
@@ -348,8 +354,8 @@ def _event_hits(events, event_windows, scores, thresholds, baseline_name, latent
         rows, _, _ = event_windows[idx]
         if not rows:
             continue
-        base = bool((scores[baseline_name](rows) >= thresholds[baseline_name]).any())
-        lat = bool((scores[latent_name](rows) >= thresholds[latent_name]).any())
+        base = bool((scores[baseline_name](rows) > thresholds[baseline_name]).any())
+        lat = bool((scores[latent_name](rows) > thresholds[latent_name]).any())
         by_ep[e["_episode_index"]].append(len(base_hits))
         base_hits.append(base)
         lat_hits.append(lat)
