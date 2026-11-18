@@ -95,7 +95,7 @@ class DumpAgent(Agent):
                 "self_y": int(me.get_y()),
                 "self_hp": int(me.get_hp()),
                 "self_damage": int(me.get_damage()),
-                "heard": len(heard) if heard is not None else 0,
+                "heard": len(heard.commands) if heard is not None else 0,
                 "entities": entities,
             })
             if time_step == self.max_steps:
