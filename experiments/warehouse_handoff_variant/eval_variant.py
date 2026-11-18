@@ -35,7 +35,9 @@ def main():
     args = parser.parse_args()
 
     variant_config = json.loads(Path(args.variant_config).read_text())
+    variant_config_path = Path(args.variant_config).resolve()
     base_config = json.loads(Path(variant_config["base_config"]).read_text())
+    base_config_path = Path(variant_config["base_config"]).resolve()
     stall_cfg = variant_config["stall"]
     upstream_root = Path(args.upstream_root).resolve()
     sys.path.insert(0, str(upstream_root / "src"))
@@ -267,6 +269,26 @@ def main():
         env = base.build_eval_env(base_config)
 
     hooks.close()
+    base.write_json(out_dir / "run_manifest.json", {
+        "task_id": variant_config.get("task_id"),
+        "base_task_id": variant_config.get("base_task_id"),
+        "base_code_commit": variant_config.get("base_code_commit"),
+        "exec_flex_sha": args.flex_sha,
+        "exec_worktree": str(HERE),
+        "variant_config": str(variant_config_path),
+        "variant_config_sha256": base.sha256_file(variant_config_path),
+        "base_config": str(base_config_path),
+        "base_config_sha256": base.sha256_file(base_config_path),
+        "checkpoint_dir": str(Path(args.checkpoint_dir).resolve()),
+        "loaded_actor": loaded,
+        "training_seed": int(args.seed),
+        "eval_seed_base": int(args.eval_seed),
+        "episodes_requested": int(args.episodes),
+        "stall_control": bool(args.stall_control),
+        "stall_config": stall_cfg,
+        "command": sys.argv,
+        "created_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
+    })
     with open(out_dir / "variant_events.jsonl", "w", encoding="utf-8") as handle:
         for event in all_variant_events:
             handle.write(json.dumps(base.json_safe(event), sort_keys=True) + "\n")
