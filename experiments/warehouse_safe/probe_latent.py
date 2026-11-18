@@ -402,13 +402,19 @@ def bootstrap_diff(events, event_windows, scores, thresholds,
 
 
 def run_one(eval_dir, event_type, agent, train_count, cal_count, out_dir, seed=0,
-            normal_mode="episode"):
+            normal_mode="episode", split=None):
     episodes = load_eval(eval_dir)
-    if len(episodes) < train_count + cal_count + 1:
+    if len(episodes) < train_count + cal_count + 1 and split is None:
         raise ValueError(f"not enough episodes in {eval_dir}: {len(episodes)}")
-    train_eps = episodes[:train_count]
-    cal_eps = episodes[train_count:train_count + cal_count]
-    test_eps = episodes[train_count + cal_count:]
+    if split is not None:
+        by_ep = {int(ep["meta"]["episode"]): ep for ep in episodes}
+        train_eps = [by_ep[i] for i in split["train"]]
+        cal_eps = [by_ep[i] for i in split["cal"]]
+        test_eps = [by_ep[i] for i in split["test"]]
+    else:
+        train_eps = episodes[:train_count]
+        cal_eps = episodes[train_count:train_count + cal_count]
+        test_eps = episodes[train_count + cal_count:]
     train, train_events = build_samples(train_eps, agent, event_type, window=20)
     cal, cal_events = build_samples(cal_eps, agent, event_type, window=20)
     test, test_events = build_samples(test_eps, agent, event_type, window=20)
@@ -550,7 +556,10 @@ def main():
     parser.add_argument("--normal-mode", choices=["episode", "window"], default="episode",
                         help="episode: pre-registered event-free episodes; window: exploratory "
                              "normal stretches outside event windows")
+    parser.add_argument("--split-file", default=None,
+                        help="JSON mapping eval_dir to train/cal/test episode indices")
     args = parser.parse_args()
+    split_map = json.loads(Path(args.split_file).read_text()) if args.split_file else {}
     Path(args.out_dir).mkdir(parents=True, exist_ok=True)
     summary = []
     if args.event:
@@ -566,7 +575,8 @@ def main():
                 summary.append(run_one(eval_dir, event_type, agent,
                                        args.train_count, args.cal_count,
                                        args.out_dir, seed=args.seed + i,
-                                       normal_mode=args.normal_mode))
+                                       normal_mode=args.normal_mode,
+                                       split=(split_map.get(eval_dir) or {}).get("split")))
             except Exception as exc:
                 summary.append({"eval_dir": eval_dir, "event_type": event_type, "agent": agent,
                                 "error": repr(exc)})
