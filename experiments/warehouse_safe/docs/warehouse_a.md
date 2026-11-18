@@ -91,6 +91,13 @@ frozen. Splits are complete episodes with separate eval seeds. The calibration
 threshold is the 95th percentile of normal calibration episode maxima; the
 test false-alarm rate and event recall are reported without refitting.
 
+Event windows are truncated at the next failure event in the same episode, so
+later failures are not credited to an earlier event. Early-risk alarms are
+counted only in normal stretches outside earlier failure windows. Recall
+intervals are bootstrapped both over events clustered by episode and over
+episode-level recall; the support decision requires the episode-level lower
+bound to be positive as well.
+
 ## Run
 
 ```bash
