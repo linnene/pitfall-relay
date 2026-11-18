@@ -1,0 +1,116 @@
+{
+  "task": "flex-fetch-cal-final-20261118-4a70d21c",
+  "created_at": "2026-11-18T17:55:00+08:00",
+  "purpose": "One-shot fresh natural holdout after the Fetch calibration repair; no retraining, no refitting, no threshold adjustment.",
+  "execution": {
+    "workspace_commit": "51ccd6223332d3c93dc5186de32bffb3c497df0a",
+    "workspace_commit_note": "Code commit immediately before this manifest; the manifest commit is documentation only.",
+    "probe_code_sha256": "4c3fcec8e43da6cfb945bec92084b06a5c81dde4de79e436e255b0b540516659",
+    "eval_script_sha256": "24f03b7b761f11b29fe01ee121402a9bdda317d5df891168f4466339d96f65a0",
+    "self_check_sha256": "d689577412c037ddd946bc666de2381338c07e7518d768bbdb84334f27f7f5ba",
+    "fit_script_commit": "16ca07e",
+    "remote_code_dir": "/data/amgg_flex_demo/flex-fetch-cal-final-20261118-4a70d21c/code"
+  },
+  "archived_collection_code": {
+    "repo": "/data/amgg_flex_demo/flex-warehouse-handoff-variant-20261118-a92b6f31/FLEX_eval",
+    "repo_commit": "d0b31525c345e2d3d2ba91fc2c1cc639d31099ed",
+    "eval_variant_sha256": "4aa5b5721c264c2693508279109f08385a42738465f3e5325b6a5e9056bae5a2",
+    "variant_sha256": "e015635e964550f5b467a862398d3523228d3fbbc338e4f3587e6c743c714e13"
+  },
+  "frozen_policies": {
+    "11": {
+      "checkpoint_dir": "/data/amgg_flex_demo/flex-warehouse-handoff-variant-20261118-a92b6f31/checkpoints/seed11_final",
+      "checkpoint_files_sha256": "6c45b0d70f730f50b68286250681d787a3877bcd8375ff0b7230b8fd18cf3bb9",
+      "manifest_sha256": "191241b98987695c3f6dfbe4c33140379769543a0774db15da1d4ac72a2c9c4d"
+    },
+    "22": {
+      "checkpoint_dir": "/data/amgg_flex_demo/flex-warehouse-handoff-variant-20261118-a92b6f31/checkpoints/seed22_final",
+      "checkpoint_files_sha256": "ef469c37fd4a0ad9a7e545b0f81c23626f69f04e8c4dee205eed52ba33707d31",
+      "manifest_sha256": "188708edd7af75b78378c9286337aa46abd968ab846cf1c10da128c46afb2dba"
+    }
+  },
+  "frozen_probes": {
+    "11": {
+      "models_sha256": "839b9b0eb8cfd390b6754d9778536a6c53ed535a89ad862f40b256e80bf95661",
+      "thresholds_sha256": "7900e22ff3e7d94c5566bb6d9181d851c79c41b5696bd792fd0c904b050f43fb",
+      "thresholds": {
+        "baseline": 0.004955577218125768,
+        "real": 0.0029979405550890166,
+        "shuffled": 0.009251411458680641
+      }
+    },
+    "22": {
+      "models_sha256": "4e242565ff7ef832e5aa84685705a98d5f4e3572ce39448620f46fab4c110d20",
+      "thresholds_sha256": "b4e3c333b92984c3334aa13cce711a02d66729bed5272674480715c03653df09",
+      "thresholds": {
+        "baseline": 0.0030270916586056123,
+        "real": 0.0006464125608062028,
+        "shuffled": 0.009860201227503355
+      }
+    }
+  },
+  "variant_config": {
+    "path": "/data/amgg_flex_demo/flex-warehouse-handoff-variant-20261118-a92b6f31/FLEX_eval/experiments/warehouse_handoff_variant/configs/handoff_variant.json",
+    "sha256": "4dea7052445556a9149c82fe5e5338ba1411676a4a79d7cedb811c762464ff7c",
+    "base_config_path": "/data/amgg_flex_demo/flex-warehouse-handoff-variant-20261118-a92b6f31/FLEX_eval/experiments/warehouse_handoff_variant/configs/base_warehouse_a_maciaicc.json",
+    "base_config_sha256": "50fe5b91b6d7024e569a3af57a9a9615f529f0ee288c39497880f8b23e38dbf7",
+    "stall": {
+      "intervals_per_episode": 2,
+      "min_length": 6,
+      "max_length": 14,
+      "salt": 20261118
+    }
+  },
+  "probe_fit_data": {
+    "fetch_view_seed11": "/data/amgg_flex_demo/flex-warehouse-fetch-audit-20261118-6e28c1af/runs/fetch_view_seed11",
+    "fetch_view_seed22": "/data/amgg_flex_demo/flex-warehouse-fetch-audit-20261118-6e28c1af/runs/fetch_view_seed22",
+    "split_file": "/data/amgg_flex_demo/flex-warehouse-fetch-audit-20261118-6e28c1af/runs/fetch_split_seed11_22.json",
+    "split_sha256": "83b431b33cd98df822e5cc16c26a4e5fcebb356ee54d536e9aa11b45971977e4"
+  },
+  "holdout": {
+    "episodes_per_seed": 2000,
+    "total_episodes": 4000,
+    "hooks": "on",
+    "stall_control": false,
+    "device": "cpu",
+    "new_eval_seed_ranges": {
+      "11": [20011, 22010],
+      "22": [24022, 26021]
+    },
+    "prior_eval_seed_ranges": [
+      [9100, 9399],
+      [9411, 12410],
+      [9422, 12421],
+      [9433, 12432]
+    ],
+    "prior_max_eval_seed_end": 12432,
+    "disjoint_from_prior": true,
+    "raw_output_paths": {
+      "11": "/data/amgg_flex_demo/flex-fetch-cal-final-20261118-4a70d21c/runs/holdout_seed11",
+      "22": "/data/amgg_flex_demo/flex-fetch-cal-final-20261118-4a70d21c/runs/holdout_seed22"
+    },
+    "audit_output_paths": {
+      "audit_json": "/data/amgg_flex_demo/flex-fetch-cal-final-20261118-4a70d21c/runs/fetch_audit_holdout.json",
+      "view_11": "/data/amgg_flex_demo/flex-fetch-cal-final-20261118-4a70d21c/runs/fetch_view_holdout_seed11",
+      "view_22": "/data/amgg_flex_demo/flex-fetch-cal-final-20261118-4a70d21c/runs/fetch_view_holdout_seed22"
+    },
+    "evaluation_outputs": {
+      "11": "/data/amgg_flex_demo/flex-fetch-cal-final-20261118-4a70d21c/runs/eval_holdout_seed11.json",
+      "22": "/data/amgg_flex_demo/flex-fetch-cal-final-20261118-4a70d21c/runs/eval_holdout_seed22.json"
+    }
+  },
+  "data_contract": {
+    "event_type": "fetch_handoff_failure",
+    "event_agent": 2,
+    "feature_window": 20,
+    "feature_inputs": "local obs/selected_action/actual_action/mac_done/valid through t-1 plus t/T and agent flag; no labels, rewards, stall truth, or T1 latent",
+    "normal_episode": "stall_failure_count == 0",
+    "alarm_rule": "strict score > threshold",
+    "threshold_rule": "ceil((n+1)*0.95) order statistic over normal calibration episode maxima; k>n means no alarm",
+    "arms": ["baseline", "real", "shuffled"],
+    "shuffled_latent_seed": "training seed (11 or 22), deterministic cyclic donor mapping",
+    "no_refit": true,
+    "no_retrain": true,
+    "old_test_used_for_threshold": false
+  }
+}
