@@ -48,7 +48,7 @@ def sim_time(world):
     return float(world.current_time)
 
 
-def configure_layout():
+def configure_layout(widths=None):
     config.ROOM_HALF_X = 7.0
     config.ROOM_HALF_Y = 5.0
     config.WALL_THICKNESS = 0.2
@@ -57,7 +57,8 @@ def configure_layout():
     config.MAP_ORIGIN = (-config.ROOM_HALF_X, -config.ROOM_HALF_Y)
     config.ROBOT_NAMES = ["robot0", "robot1", "robot2"]
     config.LANES = {"robot0": -3.0, "robot1": 0.0, "robot2": 3.0}
-    config.BAY_WIDTHS = {"robot0": 1.8, "robot1": 1.4, "robot2": 1.2}
+    widths = widths or [1.8, 1.4, 1.2]
+    config.BAY_WIDTHS = dict(zip(config.ROBOT_NAMES, widths))
     config.ROBOT_STARTS = {n: (-4.5, y) for n, y in config.LANES.items()}
     walls = [
         (0.0, 5.0, 14.0, 0.2),
@@ -81,7 +82,8 @@ def configure_layout():
 
 
 class Probe:
-    def __init__(self):
+    def __init__(self, goal_yaw=0.0):
+        self.goal_yaw = goal_yaw
         os.makedirs(OUT_DIR, exist_ok=True)
         self.events = []
         self.world = World(
@@ -200,8 +202,9 @@ class Probe:
     def run(self, timeout_s):
         goals = {name: (4.2, config.LANES[name]) for name in self.names}
         for name, (gx, gy) in goals.items():
-            self.ros.send_goal(name, gx, gy, 0.0)
-        self.log("goals_sent", goals={n: list(g) for n, g in goals.items()})
+            self.ros.send_goal(name, gx, gy, self.goal_yaw)
+        self.log("goals_sent", goals={n: list(g) for n, g in goals.items()},
+                 yaw=self.goal_yaw)
         deadline = sim_time(self.world) + timeout_s
         while sim_time(self.world) < deadline:
             self.step()
@@ -252,9 +255,13 @@ class Probe:
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--timeout", type=float, default=180.0)
+    parser.add_argument("--widths", default="1.8,1.4,1.2",
+                        help="comma-separated bay clear widths for robot0/1/2")
+    parser.add_argument("--goal-yaw", type=float, default=0.0)
     args = parser.parse_args()
-    configure_layout()
-    probe = Probe()
+    widths = [float(x) for x in args.widths.split(",")]
+    configure_layout(widths)
+    probe = Probe(goal_yaw=args.goal_yaw)
     try:
         probe.start()
         probe.run(args.timeout)
