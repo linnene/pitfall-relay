@@ -309,6 +309,39 @@ def timing_comparison(result):
     }
 
 
+def bootstrap_episode_diff(test, events, scores, thresholds,
+                           baseline_name="baseline", latent_name="real"):
+    """Episode-level paired recall difference, resampling complete episodes."""
+    ep_ids = sorted(set(e["_episode_index"] for e in events))
+    by_ep = {ep: [e for e in events if e["_episode_index"] == ep] for ep in ep_ids}
+    rates = []
+    for ep in ep_ids:
+        base_hits = []
+        lat_hits = []
+        for e in by_ep[ep]:
+            window_end = effective_deadline(e, by_ep[ep])
+            rows = [s for s in test if s["episode"] == ep and s["agent"] == e.get("agent")
+                    and e["step"] < s["step"] and window_end is not None
+                    and s["step"] < window_end]
+            if not rows:
+                continue
+            base_hits.append(bool((scores[baseline_name](rows) >= thresholds[baseline_name]).any()))
+            lat_hits.append(bool((scores[latent_name](rows) >= thresholds[latent_name]).any()))
+        if base_hits:
+            rates.append((ep, float(np.mean(base_hits)), float(np.mean(lat_hits))))
+    if not rates:
+        return None
+    rng = np.random.RandomState(4343)
+    diffs = []
+    for _ in range(1000):
+        draw = rng.choice(len(rates), size=len(rates), replace=True)
+        diffs.append(float(np.mean([rates[i][2] - rates[i][1] for i in draw])))
+    lo, hi = np.quantile(diffs, [0.025, 0.975])
+    return {"mean": float(np.mean([r[2] - r[1] for r in rates])),
+            "ci_low": float(lo), "ci_high": float(hi),
+            "n_episodes": len(rates)}
+
+
 def bootstrap_diff(test, events, scores, thresholds, baseline_name="baseline", latent_name="real"):
     # Paired event-level difference; resample episodes as clusters and keep
     # the same event set for both arms.
@@ -435,8 +468,14 @@ def run_one(eval_dir, event_type, agent, train_count, cal_count, out_dir, seed=0
         paired = bootstrap_diff(test, test_events, scores, thresholds,
                                 baseline_name="baseline", latent_name="real")
         result["paired_baseline_vs_real"] = paired
+        result["paired_episode_baseline_vs_real"] = bootstrap_episode_diff(
+            test, test_events, scores, thresholds,
+            baseline_name="baseline", latent_name="real")
     if "shuffled" in thresholds and "real" in thresholds:
         result["paired_shuffled_vs_real"] = bootstrap_diff(
+            test, test_events, scores, thresholds,
+            baseline_name="shuffled", latent_name="real")
+        result["paired_episode_shuffled_vs_real"] = bootstrap_episode_diff(
             test, test_events, scores, thresholds,
             baseline_name="shuffled", latent_name="real")
     result["timing"] = timing_comparison(result)

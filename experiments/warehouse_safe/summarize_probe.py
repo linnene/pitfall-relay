@@ -52,7 +52,9 @@ def main():
             real = arm_row(result, "real")
             shuffled = arm_row(result, "shuffled")
             paired = result.get("paired_baseline_vs_real")
+            paired_episode = result.get("paired_episode_baseline_vs_real")
             paired_shuffled = result.get("paired_shuffled_vs_real")
+            paired_episode_shuffled = result.get("paired_episode_shuffled_vs_real")
             delta = None
             if base.get("recall") is not None and real.get("recall") is not None:
                 delta = real["recall"] - base["recall"]
@@ -67,7 +69,9 @@ def main():
                 "timing": {k: v for k, v in (result.get("timing") or {}).items() if k != "per_event"},
                 "delta_real_minus_baseline": delta,
                 "paired_baseline_vs_real": paired,
+                "paired_episode_baseline_vs_real": paired_episode,
                 "paired_shuffled_vs_real": paired_shuffled,
+                "paired_episode_shuffled_vs_real": paired_episode_shuffled,
             })
 
     supported = []
@@ -81,10 +85,13 @@ def main():
         qualified = []
         for row in group:
             paired = row.get("paired_baseline_vs_real") or {}
+            paired_episode = row.get("paired_episode_baseline_vs_real") or {}
             if (row.get("delta_real_minus_baseline") is not None
                     and row["delta_real_minus_baseline"] >= 0.10
                     and paired.get("ci_low") is not None
-                    and paired["ci_low"] > 0.0):
+                    and paired["ci_low"] > 0.0
+                    and paired_episode.get("ci_low") is not None
+                    and paired_episode["ci_low"] > 0.0):
                 qualified.append(row["eval_dir"])
         events_ok = all((row.get("counts") or {}).get("test_events", 0) >= 50
                         for row in group)
