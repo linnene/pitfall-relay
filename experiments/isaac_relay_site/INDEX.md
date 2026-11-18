@@ -31,7 +31,7 @@ SIGINT is not treated as failure evidence.
 | run | shape | clear widths (m) | outcome | native action result |
 | --- | --- | --- | --- | --- |
 | `bay_probe1` | straight | 1.8 / 1.4 / 1.2 | all three `SUCCEEDED` | yes, 0.16-0.18 m xy error |
-| `bay_probe2` | straight | 1.4 / 1.18 / 1.10 | all three `SUCCEEDED` | yes, 0.13-0.16 m |
+| `bay_probe2` | straight | 1.4 / 1.18 / 1.10 | all three `SUCCEEDED` | yes, 0.12-0.13 m |
 | `bay_probe4` | L turn | 0.75 | planner: `failed to generate a valid path`; robot never moved | no result; shutdown only |
 | `bay_probe5` | L turn | 0.90 | `SUCCEEDED` in 47.4 s | yes, 0.18 m |
 | `bay_probe6` | L turn | 0.80 | moved, then still executing at 120 s | no result |
