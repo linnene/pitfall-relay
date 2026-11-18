@@ -166,6 +166,7 @@ def snapshot_agents(env):
         "turtle_time_left": [float(t.cur_action_time_left) for t in turtles],
         "turtle_bwp": [int(t.cur_BWP.idx) if t.cur_BWP is not None else -1 for t in turtles],
         "finish_count": len(env.finish_serve_humans),
+        "finish_serve_humans": [int(x) for x in env.finish_serve_humans],
         "humans": [
             {
                 "cur_step": int(h.cur_step),
@@ -462,13 +463,16 @@ def main():
             "human_time_left": np.array([[h["time_left"] for h in s["after"]["humans"]] for s in state_hist], dtype=np.float32),
             "human_obtained": np.array([[h["obtained"] for h in s["after"]["humans"]] for s in state_hist], dtype=np.int8),
             "human_finished": np.array([[h["finished"] for h in s["after"]["humans"]] for s in state_hist], dtype=np.int8),
+            "human_served": np.array([[1 if h in s["after"]["finish_serve_humans"] else 0
+                                       for h in range(env.unwrapped.n_human)]
+                                      for s in state_hist], dtype=np.int8),
             "finish_count": np.array([s["after"]["finish_count"] for s in state_hist], dtype=np.int16),
         }
         stem = episodes_dir / f"episode_{episode_idx:05d}"
         np.savez_compressed(str(stem) + ".npz", **arrays)
         human_finish_steps = []
         for h in range(env.unwrapped.n_human):
-            hits = np.nonzero(arrays["human_finished"][:, h] > 0)[0]
+            hits = np.nonzero(arrays["human_served"][:, h] > 0)[0]
             human_finish_steps.append(int(hits[0]) + 1 if len(hits) else None)
         summary = {
             "episode": episode_idx,
