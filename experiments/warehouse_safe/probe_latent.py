@@ -58,6 +58,10 @@ def build_samples(episodes, agent, event_type, window, include_latent=True):
         for t in range(T):
             if not bool(valid[t, agent]):
                 continue
+            if t == 0:
+                # At t=0 the Actor sees the reset observation, which is not in
+                # the completed-step arrays; the next sample starts at t=1.
+                continue
             after_event = [s for s in event_steps if s < t]
             in_window = False
             if after_event:
@@ -164,20 +168,38 @@ def threshold_from_normal(cal_samples, score):
     return threshold, maxima
 
 
+def effective_deadline(event, episode_events):
+    """Window end for an event, truncated by the next event in the episode.
+
+    Samples after a later failure describe that later event; attributing them
+    to the earlier event would overstate its recall.
+    """
+    deadline = event.get("next_relevant_decision_step")
+    if deadline is None:
+        return None
+    later = [int(e["step"]) for e in episode_events if int(e["step"]) > int(event["step"])]
+    return min(int(deadline), min(later)) if later else int(deadline)
+
+
 def evaluate_events(test, events, score, threshold):
     by_ep = defaultdict(list)
     for s in test:
         by_ep[s["episode"]].append(s)
+    events_by_ep = defaultdict(list)
+    for e in events:
+        events_by_ep[e["_episode_index"]].append(e)
     results = []
     for e in events:
         ep = e["_episode_index"]
         step = int(e["step"])
         deadline = e.get("next_relevant_decision_step")
+        window_end = effective_deadline(e, events_by_ep[ep])
         rows = [s for s in by_ep.get(ep, []) if s["agent"] == e.get("agent")]
-        window_rows = [s for s in rows if step < s["step"] and deadline is not None and s["step"] < deadline]
+        window_rows = [s for s in rows if step < s["step"] and window_end is not None and s["step"] < window_end]
         pre_rows = [s for s in rows if s["step"] < step]
         if not window_rows:
             results.append({"episode": ep, "event_step": step, "deadline": deadline,
+                            "effective_deadline": window_end,
                             "reachable": False, "recalled": False, "early": False,
                             "delay": None, "window_covered": False})
             continue
@@ -192,8 +214,9 @@ def evaluate_events(test, events, score, threshold):
             "episode": ep,
             "event_step": step,
             "deadline": deadline,
+            "effective_deadline": window_end,
             "reachable": True,
-            "window_steps": int(deadline) - step,
+            "window_steps": int(window_end) - step,
             "window_covered": True,
             "recalled": bool(alarm.any()),
             "early": bool((pre_scores >= threshold).any()) if len(pre_scores) else False,
@@ -238,9 +261,10 @@ def bootstrap_diff(test, events, scores, thresholds, baseline_name="baseline", l
         lat_hits = []
         for ep in draw:
             for e in by_ep[ep]:
+                window_end = effective_deadline(e, by_ep[ep])
                 rows = [s for s in test if s["episode"] == ep and s["agent"] == e.get("agent")
-                        and e["step"] < s["step"] and e.get("next_relevant_decision_step") is not None
-                        and s["step"] < e["next_relevant_decision_step"]]
+                        and e["step"] < s["step"] and window_end is not None
+                        and s["step"] < window_end]
                 if not rows:
                     continue
                 base_scores = scores[baseline_name](rows)
