@@ -48,7 +48,7 @@ def sim_time(world):
     return float(world.current_time)
 
 
-def configure_layout(widths=None):
+def configure_layout(widths=None, shape="straight"):
     config.ROOM_HALF_X = 7.0
     config.ROOM_HALF_Y = 5.0
     config.WALL_THICKNESS = 0.2
@@ -59,6 +59,7 @@ def configure_layout(widths=None):
     config.LANES = {"robot0": -3.0, "robot1": 0.0, "robot2": 3.0}
     widths = widths or [1.8, 1.4, 1.2]
     config.BAY_WIDTHS = dict(zip(config.ROBOT_NAMES, widths))
+    config.BAY_SHAPE = shape
     config.ROBOT_STARTS = {n: (-4.5, y) for n, y in config.LANES.items()}
     walls = [
         (0.0, 5.0, 14.0, 0.2),
@@ -66,12 +67,32 @@ def configure_layout(widths=None):
         (7.0, 0.0, 0.2, 10.0),
         (-7.0, 0.0, 0.2, 10.0),
     ]
+    config.GOALS = {}
     for name, lane in config.LANES.items():
         width = config.BAY_WIDTHS[name]
-        side_y = width / 2.0 + 0.1
-        walls.append((3.5, lane + side_y, 3.0, 0.2))
-        walls.append((3.5, lane - side_y, 3.0, 0.2))
-        walls.append((5.1, lane, 0.2, width + 0.4))
+        if shape == "l":
+            # L-shaped corridor: enter east, turn north at the end.
+            half = width / 2.0
+            south_x0, south_x1 = 2.0, 4.5 + half + 0.2
+            north_x0, north_x1 = 2.0, 4.5 - half
+            walls.extend([
+                ((south_x0 + south_x1) / 2.0, lane - half - 0.1,
+                 south_x1 - south_x0, 0.2),
+                ((north_x0 + north_x1) / 2.0, lane + half + 0.1,
+                 north_x1 - north_x0, 0.2),
+                (4.5 - half - 0.1, lane + (half + 1.9) / 2.0,
+                 0.2, 1.9 - half),
+                (4.5 + half + 0.1, lane + (-half + 1.9) / 2.0,
+                 0.2, 1.9 + half),
+                (4.5, lane + 1.9, width + 0.4, 0.2),
+            ])
+            config.GOALS[name] = (4.5, lane + 1.2)
+        else:
+            side_y = width / 2.0 + 0.1
+            walls.append((3.5, lane + side_y, 3.0, 0.2))
+            walls.append((3.5, lane - side_y, 3.0, 0.2))
+            walls.append((5.1, lane, 0.2, width + 0.4))
+            config.GOALS[name] = (4.2, lane)
     config.STATIC_WALLS = walls
     # scene.py expects these hidden dynamic props; keep them outside the room.
     config.DETOUR_OBSTACLE = ("detour", 20.0, 20.0, 0.2, 0.2)
@@ -200,7 +221,7 @@ class Probe:
         return int(msg.data[row * info.width + col])
 
     def run(self, timeout_s):
-        goals = {name: (4.2, config.LANES[name]) for name in self.names}
+        goals = {name: tuple(config.GOALS[name]) for name in self.names}
         for name, (gx, gy) in goals.items():
             self.ros.send_goal(name, gx, gy, self.goal_yaw)
         self.log("goals_sent", goals={n: list(g) for n, g in goals.items()},
@@ -226,7 +247,7 @@ class Probe:
                 "result_received": bool(rec and rec["result"] is not None),
                 "cancelled_by_client": bool(rec and rec["cancelled_by_client"]),
                 "final_pose_world": [round(px, 3), round(py, 3), round(pyaw, 3)],
-                "xy_error_m": round(math.hypot(px - 4.2, py - config.LANES[name]), 3),
+                "xy_error_m": round(math.hypot(px - goals[name][0], py - goals[name][1]), 3),
                 "sim_t": round(sim_time(self.world), 3),
                 "plan_msgs": self.ros.plan_count[name],
                 "cmd_vel_msgs": self.ros.cmd_count[name],
@@ -257,11 +278,15 @@ def main():
     parser.add_argument("--timeout", type=float, default=180.0)
     parser.add_argument("--widths", default="1.8,1.4,1.2",
                         help="comma-separated bay clear widths for robot0/1/2")
-    parser.add_argument("--goal-yaw", type=float, default=0.0)
+    parser.add_argument("--shape", choices=["straight", "l"], default="straight")
+    parser.add_argument("--goal-yaw", type=float, default=None)
     args = parser.parse_args()
     widths = [float(x) for x in args.widths.split(",")]
-    configure_layout(widths)
-    probe = Probe(goal_yaw=args.goal_yaw)
+    configure_layout(widths, args.shape)
+    goal_yaw = args.goal_yaw
+    if goal_yaw is None:
+        goal_yaw = math.pi / 2.0 if args.shape == "l" else 0.0
+    probe = Probe(goal_yaw=goal_yaw)
     try:
         probe.start()
         probe.run(args.timeout)
