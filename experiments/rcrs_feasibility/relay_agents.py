@@ -122,6 +122,7 @@ class PoliceAgent(BaseAgent):
         super().__init__("POLICE_FORCE", out_path, start_step)
         self.route_roads = [279, 266, 971, 976, 975, 974]
         self.done = False
+        self.route_seen = False
 
     def blockades(self):
         out = []
@@ -134,11 +135,9 @@ class PoliceAgent(BaseAgent):
         if time_step < self.start_step:
             self.send_rest(time_step)
             return
-        if self.done:
-            self.send_rest(time_step)
-            return
         blockades = self.blockades()
         if blockades:
+            self.route_seen = True
             # Prefer blockades on the ambulance route or the current road.
             current = as_int(self.me().get_position())
             target = None
@@ -156,11 +155,12 @@ class PoliceAgent(BaseAgent):
                              road=road, repair_cost=int(target.get_repaire_cost()))
                 self.send_clear(time_step, target.get_id())
                 return
-        # No known route blockade: report route clear and hold.
-        if not self.done:
+        # Do not declare the route clear before collapse blockades have had a
+        # chance to appear in local perception.
+        if not self.done and time_step >= 25 and not blockades:
             self.done = True
             self.log(time_step, "route_clear",
-                     blockades_known=len(blockades),
+                     blockades_known=0,
                      position=as_int(self.me().get_position()))
             self.send_say(time_step, "ROUTE_CLEAR")
             self.finish()
