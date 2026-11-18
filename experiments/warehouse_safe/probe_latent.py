@@ -197,16 +197,23 @@ def window_rows_for_events(test, events):
     for ep, items in events_by_ep.items():
         items.sort(key=lambda pair: int(pair[1]["step"]))
         episode_events = [pair[1] for pair in items]
-        for idx, e in items:
+        prior_windows = []
+        for pos, (idx, e) in enumerate(items):
             step = int(e["step"])
             end = effective_deadline(e, episode_events)
             rows = [s for s in samples_by_ep.get(ep, [])
                     if s["agent"] == e.get("agent") and step < s["step"]
                     and end is not None and s["step"] < end]
+            # Early risk is measured only in normal stretches: samples inside
+            # an earlier event's post-failure window are not "early" for this
+            # event.
             pre = [s for s in samples_by_ep.get(ep, [])
-                   if s["agent"] == e.get("agent") and s["step"] < step]
+                   if s["agent"] == e.get("agent") and s["step"] < step
+                   and not any(start < s["step"] < prior_end
+                               for start, prior_end in prior_windows if prior_end is not None)]
             out[idx] = (rows, pre, end)
-    return out
+            if end is not None:
+                prior_windows.append((step, end))
 
 
 def evaluate_events(test, events, score, threshold, event_windows=None):
