@@ -5,9 +5,9 @@
   "upstream_commit": "f5899cd7b96bb3dbf7b265494a3ba8a15b2e3fe2",
   "base_config": "configs/base_warehouse_a_maciaicc.json",
   "checkpoints": {
-    "11": "<remote>/runs/seed_11/checkpoints/epi_040000",
-    "22": "<remote>/runs/seed_22/checkpoints/epi_040000",
-    "33": "<remote>/runs/seed_33/checkpoints/epi_040000"
+    "11": "checkpoints/seed11_final",
+    "22": "checkpoints/seed22_final",
+    "33": "checkpoints/seed33_final"
   },
   "stall": {
     "intervals_per_episode": 2,

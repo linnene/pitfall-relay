@@ -172,7 +172,10 @@ def link_windows(failures, decisions):
             "stall_active_at_decision": decision["stall_active"] if decision else False,
             "interface_relevant_choice": bool(decision["chosen_tool"]) if decision else False,
             "window": bool(decision and decision["two_options"]
-                           and decision["stall_active"] and decision["chosen_tool"]),
+                           and decision["chosen_tool"]),
+            "window_with_active_stall": bool(decision and decision["two_options"]
+                                             and decision["chosen_tool"]
+                                             and decision["stall_active"]),
             "decision": decision,
         }
         linked.append(row)
