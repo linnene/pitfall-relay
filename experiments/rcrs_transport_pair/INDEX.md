@@ -20,8 +20,9 @@ map, or clearing:
 - `SampleHumanDetector.filterRescueTargets` selects only civilians with
   `buriedness > 0`.
 - `DefaultExtActionTransport.calcRescue` returns `ActionLoad` only when the
-  target is at the ambulance position and `buriedness == 0`; otherwise it
-  returns only `ActionMove`. It never returns `ActionRescue`.
+  target is at the ambulance position and `buriedness == 0`; if the target is
+  elsewhere it returns only `ActionMove`, and at the same position with
+  remaining buriedness it returns null. It never returns `ActionRescue`.
 - Only the fire-brigade `DefaultExtActionFireRescue` emits `ActionRescue` in
   this stack.
 
