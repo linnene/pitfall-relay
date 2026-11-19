@@ -91,7 +91,9 @@ unseen generator parameters; it does not show learned experience use.
 ## Anchors and data
 
 - Design/freeze commit: `f157375`; formal holdout execution SHA: `5c4949c`.
-- Script sha256: `0a90fd5c25a6ce7d4037a8b5decc4196dc3a200bd08f83ec1de645adb2b0e104`.
+- Script sha256: `0a90fd5c25a6ce7d4037a8b5decc4196dc3a200bd08f83ec1de645adb2b0e104`;
+  `holdout.json` sha256:
+  `ffda9dd5c5c6ea768837b6ade37a2fdbaaa88ef9f0bd6439d0f55909ac075519`.
 - Python 3.12.3 on `amgg-Super-Server`; single CPU process; no external
   packages; no training checkpoint.
 - Development seeds: `high_a` 1–8, `urgent_b` 1–8. Holdout: relevant
