@@ -6,11 +6,13 @@ S=$D/src/rcrs-server
 A=$D/src/adf-sample
 E=$D/envs/rcrs
 OUT=${OUT:?set OUT}
+MAP=${MAP:-../maps/test/map}
+CONFIG=${CONFIG:-../maps/test/config}
 mkdir -p "$OUT/logs"
 cd "$S/scripts"
 export PATH=$E/bin:$PATH
 export JAVA_HOME=$E
-bash start.sh -m ../maps/test/map -c ../maps/test/config -g -l "$OUT/logs" \
+bash start.sh -m "$MAP" -c "$CONFIG" -g -l "$OUT/logs" \
   > "$OUT/server.log" 2>&1 &
 SERVER_PID=$!
 echo "$SERVER_PID" > "$OUT/server.pid"
