@@ -34,6 +34,14 @@ threshold and faster damage make pumping necessary; early isolation of A
 occupies the shared robot and B is lost at t=4. The same action set and flows
 are paired; only order differs. No single fixed order wins both regimes.
 
+Resource conflict is explicit: in the I arm the shared isolation robot is
+occupied by A from t=0–5, so B cannot request isolation and is lost at t=4;
+in the P arm isolation is requested only after both pump set-ups (t=6–11).
+Local work times are fixed by the schedule (P: pump 0–setup, transport
+setup–setup+transport; I: transport 0–transport, pump
+transport–transport+setup); `gate1_final.json` has levels, loss/preservation
+times and configs.
+
 ## Gate 2: frozen 48-group holdout
 
 A follows pump-first and fails; B's state continues to evolve and B makes a
