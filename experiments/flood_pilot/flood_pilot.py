@@ -401,12 +401,22 @@ def _bootstrap_ci(diffs, rng, n=2000):
 def gate2_holdout(out_path=None):
     groups = [("relevant", s) for s in range(2001, 2025)]
     groups += [("nonapplicable", s) for s in range(3001, 3025)]
-    rows = [_gate2_one(seed, g) for g, seed in groups]
+    rows = []
+    for g, seed in groups:
+        try:
+            rows.append(_gate2_one(seed, g))
+        except Exception as exc:  # a design failure must be reported, not hidden
+            rows.append({"seed": seed, "group": g, "error": repr(exc)})
+    valid = [r for r in rows if "error" not in r]
     summary = {}
     for g in ("relevant", "nonapplicable"):
-        rr = [r for r in rows if r["group"] == g]
+        rr = [r for r in valid if r["group"] == g]
+        if not rr:
+            summary[g] = {"n": 0, "error": "no valid groups"}
+            continue
         summary[g] = {
             "n": len(rr),
+            "errors": sum(1 for r in rows if r["group"] == g and "error" in r),
             "b_loss": {a: sum(1 for r in rr if r[a]["lost"]) for a in ("shared", "notice", "history")},
             "b_loss_rate": {a: sum(1 for r in rr if r[a]["lost"]) / len(rr) for a in ("shared", "notice", "history")},
             "team_preserved": {a: sum(r["team_preserved"][a] for r in rr) for a in ("shared", "notice", "history")},
@@ -424,13 +434,19 @@ def gate2_holdout(out_path=None):
             "ci95": _bootstrap_ci(diffs, random.Random(7)),
         }
     checks = {
-        "relevant_loss_gain": summary["relevant"]["b_loss"]["notice"] - summary["relevant"]["b_loss"]["history"],
-        "relevant_team_not_lower": summary["relevant"]["team_preserved"]["history"] >= summary["relevant"]["team_preserved"]["notice"],
-        "nonapp_wrong_extra": summary["nonapplicable"]["wrong_isolation"]["history"] - summary["nonapplicable"]["wrong_isolation"]["notice"],
-        "nonapp_team_not_lower": summary["nonapplicable"]["team_preserved"]["history"] >= summary["nonapplicable"]["team_preserved"]["notice"],
+        "relevant_loss_gain": (summary.get("relevant", {}).get("b_loss", {}).get("notice", 0)
+                               - summary.get("relevant", {}).get("b_loss", {}).get("history", 0)),
+        "relevant_team_not_lower": (summary.get("relevant", {}).get("team_preserved", {}).get("history", 0)
+                                     >= summary.get("relevant", {}).get("team_preserved", {}).get("notice", 0)),
+        "nonapp_wrong_extra": (summary.get("nonapplicable", {}).get("wrong_isolation", {}).get("history", 0)
+                                - summary.get("nonapplicable", {}).get("wrong_isolation", {}).get("notice", 0)),
+        "nonapp_team_not_lower": (summary.get("nonapplicable", {}).get("team_preserved", {}).get("history", 0)
+                                   >= summary.get("nonapplicable", {}).get("team_preserved", {}).get("notice", 0)),
+        "all_48_valid": len(valid) == 48,
     }
     checks["thresholds_met"] = (
-        checks["relevant_loss_gain"] >= 4
+        checks["all_48_valid"]
+        and checks["relevant_loss_gain"] >= 4
         and checks["relevant_team_not_lower"]
         and checks["nonapp_wrong_extra"] <= 2
         and checks["nonapp_team_not_lower"])
