@@ -8,6 +8,7 @@ E=$D/envs/rcrs
 OUT=${OUT:?set OUT}
 MAP=${MAP:-../maps/test/map}
 CONFIG=${CONFIG:-../maps/test/config}
+TEAM=${TEAM:-1,0,1,0,1,0}
 mkdir -p "$OUT/logs"
 cd "$S/scripts"
 export PATH=$E/bin:$PATH
@@ -27,7 +28,7 @@ fi
 cd "$A"
 export GRADLE_USER_HOME=/data/amgg_flex_demo/flex-rcrs-feasibility-6a2f1d8c/gradle
 /data/amgg_flex_demo/flex-rcrs-feasibility-6a2f1d8c/src/gradle-9.3.1/bin/gradle launch \
-  --args="adf.impl.DefaultLoader -t 1,0,1,0,1,0 -h localhost -p 27931" \
+  --args="adf.impl.DefaultLoader -t $TEAM -h localhost -p 27931" \
   --no-daemon > "$OUT/adf.log" 2>&1 &
 ADF_PID=$!
 echo "$ADF_PID" > "$OUT/adf.pid"

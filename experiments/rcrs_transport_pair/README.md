@@ -26,5 +26,8 @@ make a real, native difference?
 
 ## Current status
 
-Development only; no formal pair has been frozen or run. Raw data stays under
+Closed. The official ADF sample clears 23 blockades natively on Kobe but
+completes no live transport (`AKLoad`/`AKUnload` = 0); its ambulance transport
+never emits `ActionRescue` for a buried civilian. Verdict and anchors are in
+`INDEX.md`. No formal pair or B check was run. Raw data stays under
 `/data/amgg_flex_demo/flex-rcrs-transport-pair-0de672a9/`.
